@@ -1,0 +1,9 @@
+# ER-модель
+
+USERS 1—N LOANS, USERS 1—N FINES, USERS 1—N RESERVATIONS, USERS 1—N NOTIFICATIONS, USERS 1—N BOOK_QUEUE.
+
+BOOKS 1—N BOOK_COPIES. BOOK_COPIES 1—N LOANS, BOOK_COPIES 1—N RESERVATIONS.
+
+LOANS 1—N FINES. BOOK_COPIES 1—N INVENTORY_LOG; USERS 1—N INVENTORY_LOG и AUDIT_LOG.
+
+Схема БД находится в `app/core/database.py` и соответствует перечисленным сущностям и ключевым полям из ТЗ.

@@ -1,0 +1,3 @@
+{% extends 'base.html' %}{% block title %}Вход — LMS{% endblock %}{% block content %}
+<section class="auth-page"><div class="auth-card"><div class="eyebrow">LMS</div><h1>Вход в систему</h1><p class="muted">Введите логин и пароль.</p><form id="login-form" onsubmit="return LMS.login(event)"><label>Логин<input id="login" required autocomplete="username"></label><label>Пароль<input id="password" type="password" required autocomplete="current-password"></label><button class="btn btn-primary btn-lg full" type="submit">Войти</button></form><div class="auth-note">Нет аккаунта? <a href="/register">Зарегистрироваться</a></div><div class="demo">Демо-администратор: <b>admin</b> / <b>admin123</b></div></div></section>
+{% endblock %}
