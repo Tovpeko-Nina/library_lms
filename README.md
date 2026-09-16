@@ -1,4 +1,4 @@
-## Local development
+## LMS
 
 1. Create a virtual environment.
 2. Install dependencies.
