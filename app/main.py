@@ -72,7 +72,7 @@ def startup():
 @app.get("/health")
 def health():
     """Служебная проверка доступности приложения."""
-    return {"status": "ok"}
+    return {"status": "ok", "service": "library-lms"}
 
 
 @app.get("/api/v1/health")
