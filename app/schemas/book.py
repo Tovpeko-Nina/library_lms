@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BookCreate(BaseModel):
@@ -18,6 +18,8 @@ class CopyCreate(BaseModel):
     branch: str
     price: float | None = None
     condition: str = "NEW"
+    publication_year: int = Field(ge=1000, le=9999)
+    edition_number: int | None = Field(default=None, ge=1)
 
 
 class CopyStatusUpdate(BaseModel):

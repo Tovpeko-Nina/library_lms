@@ -35,7 +35,7 @@ def register_user(data):
                 user_id, login, email, password_hash,
                 first_name, last_name, role, is_verified,
                 verification_token, registration_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?, ?)
             """,
             (
                 user_id,
@@ -61,7 +61,7 @@ def login_user(data):
     """Проверить логин и пароль и создать JWT."""
     with get_db() as db:
         user = db.execute(
-            "SELECT * FROM users WHERE login=? AND is_active=1",
+            "SELECT * FROM users WHERE login=? AND is_active=TRUE",
             (data.login,),
         ).fetchone()
 
@@ -73,7 +73,7 @@ def login_user(data):
 
     with get_db() as db:
         db.execute(
-            "UPDATE users SET last_login=datetime('now') WHERE user_id=?",
+            "UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE user_id=?",
             (user["user_id"],),
         )
 

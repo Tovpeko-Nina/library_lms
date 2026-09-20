@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import (
@@ -16,7 +16,7 @@ from app.api.v1 import (
     settings,
     users,
 )
-from app.core.database import init_db
+from app.core.database import get_db, init_db
 from app.routes import admin, auth as auth_pages, books as book_pages
 from app.routes import loans as loan_pages
 from app.routes.web import router as web_router
@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 app = FastAPI(
     title="Library Management System",
     version="2.0.0",
-    description="LMS по ТЗ: FastAPI + SQLite + Jinja2 + JWT",
+    description="Учебная система управления библиотекой с веб-интерфейсом и REST API",
 )
 
 app.mount(
@@ -71,14 +71,22 @@ def startup():
 
 @app.get("/health")
 def health():
-    """Служебная проверка доступности приложения."""
-    return {"status": "ok", "service": "library-lms"}
+    """Проверить доступность приложения и его PostgreSQL-соединения."""
+    try:
+        with get_db() as db:
+            db.execute("SELECT 1").fetchone()
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "service": "library-lms"},
+        )
+    return {"status": "ok", "service": "library-lms", "database": "ok"}
 
 
 @app.get("/api/v1/health")
 def api_health():
     """Проверка доступности API."""
-    return {"status": "ok"}
+    return health()
 
 
 @app.get("/docs-link")

@@ -37,6 +37,7 @@ def list_books(genre=None, author=None, branch=None, available=None, search=None
 
     if author:
         query += " AND b.author LIKE ?"
+        query = query.replace("b.author LIKE ?", "b.author ILIKE ?")
         params.append(f"%{author}%")
 
     if branch:
@@ -44,13 +45,13 @@ def list_books(genre=None, author=None, branch=None, available=None, search=None
         params.append(branch)
 
     if search:
-        query += " AND (b.title LIKE ? OR b.author LIKE ? OR b.isbn LIKE ?)"
+        query += " AND (b.title ILIKE ? OR b.author ILIKE ? OR b.isbn ILIKE ?)"
         params.extend([f"%{search}%"] * 3)
 
     query += " GROUP BY b.book_id"
 
     if available is True:
-        query += " HAVING available_copies > 0"
+        query += " HAVING SUM(CASE WHEN c.status='AVAILABLE' THEN 1 ELSE 0 END) > 0"
 
     query += " ORDER BY b.title LIMIT ? OFFSET ?"
     params.extend([limit, (page - 1) * limit])
@@ -68,7 +69,7 @@ def get_branches():
             "SELECT DISTINCT branch FROM book_copies ORDER BY branch"
         ).fetchall()
 
-    return [row[0] for row in rows]
+    return [row["branch"] for row in rows]
 
 
 def get_genres():
@@ -78,7 +79,7 @@ def get_genres():
             "WHERE genre IS NOT NULL ORDER BY genre"
         ).fetchall()
 
-    return [row[0] for row in rows]
+    return [row["genre"] for row in rows]
 
 
 def search_books(query):
@@ -128,7 +129,7 @@ def create_book(data):
                     publication_date, publisher, replacement_cost,
                     description, pages, language, created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """,
                 (book_id, *values),
             )
@@ -147,7 +148,7 @@ def update_book(book_id, data):
             UPDATE books SET
                 isbn=?, title=?, author=?, genre=?, publication_date=?,
                 publisher=?, replacement_cost=?, description=?, pages=?,
-                language=?, updated_at=datetime('now')
+                language=?, updated_at=CURRENT_TIMESTAMP
             WHERE book_id=?
             """,
             (*values, book_id),
@@ -162,7 +163,7 @@ def patch_book(book_id, data):
     if values:
         fields = ", ".join(f"{key}=?" for key in values)
         query = (
-            f"UPDATE books SET {fields}, updated_at=datetime('now') "
+            f"UPDATE books SET {fields}, updated_at=CURRENT_TIMESTAMP "
             "WHERE book_id=?"
         )
 
@@ -200,18 +201,19 @@ def add_copy(book_id, data):
             raise HTTPException(404, "Книга не найдена")
 
         number = db.execute(
-            "SELECT COALESCE(MAX(copy_number), 0) + 1 "
+            "SELECT COALESCE(MAX(copy_number), 0) + 1 AS next_number "
             "FROM book_copies WHERE book_id=?",
             (book_id,),
-        ).fetchone()[0]
+        ).fetchone()["next_number"]
 
         db.execute(
             """
             INSERT INTO book_copies (
                 copy_id, book_id, branch, status, copy_number,
-                inventory_number, acquisition_date, price, condition
+                inventory_number, publication_year, edition_number,
+                acquisition_date, price, condition
             )
-            VALUES (?, ?, ?, 'AVAILABLE', ?, ?, date('now'), ?, ?)
+            VALUES (?, ?, ?, 'AVAILABLE', ?, ?, ?, ?, CURRENT_DATE, ?, ?)
             """,
             (
                 copy_id,
@@ -219,6 +221,8 @@ def add_copy(book_id, data):
                 data.branch,
                 number,
                 f"INV-{copy_id[:8]}",
+                data.publication_year,
+                data.edition_number,
                 data.price,
                 data.condition,
             ),

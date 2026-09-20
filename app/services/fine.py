@@ -26,7 +26,7 @@ def list_fines():
 
 def list_unpaid_fines():
     with get_db() as db:
-        rows = db.execute("SELECT * FROM fines WHERE is_paid=0").fetchall()
+        rows = db.execute("SELECT * FROM fines WHERE is_paid=FALSE").fetchall()
 
     return [dict(row) for row in rows]
 
@@ -46,7 +46,7 @@ def pay_fine(fine_id, user):
                 raise HTTPException(404, "Штраф не найден")
 
         db.execute(
-            "UPDATE fines SET is_paid=1, paid_date=? WHERE fine_id=?",
+            "UPDATE fines SET is_paid=TRUE, paid_date=? WHERE fine_id=?",
             (str(date.today()), fine_id),
         )
 

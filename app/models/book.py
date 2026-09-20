@@ -28,4 +28,6 @@ class BookCopy:
     status: str
     copy_number: int | None = None
     inventory_number: str | None = None
+    publication_year: int | None = None
+    edition_number: int | None = None
     condition: str = "NEW"

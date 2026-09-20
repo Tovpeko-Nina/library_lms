@@ -22,7 +22,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 def create_token(user) -> str:
     """Создать JWT-токен пользователя на 8 часов."""
     payload = {
-        "sub": user["user_id"],
+        "sub": str(user["user_id"]),
         "role": user["role"],
         "exp": datetime.now(timezone.utc) + timedelta(hours=8),
     }
