@@ -12,3 +12,5 @@ class Reservation:
     status: str
     expiry_date: str
     priority: int = 0
+    preferred_publication_year: int | None = None
+    preferred_edition_number: int | None = None

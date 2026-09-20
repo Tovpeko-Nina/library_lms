@@ -50,14 +50,14 @@ def copies_by_status(status):
 
 def usage_report():
     with get_db() as db:
-        total_loans = db.execute("SELECT COUNT(*) FROM loans").fetchone()[0]
+        total_loans = db.execute("SELECT COUNT(*) AS count FROM loans").fetchone()["count"]
         total_readers = db.execute(
-            "SELECT COUNT(*) FROM users "
+            "SELECT COUNT(*) AS count FROM users "
             "WHERE role IN ('STUDENT', 'EMPLOYEE')"
-        ).fetchone()[0]
+        ).fetchone()["count"]
         fines = db.execute(
-            "SELECT COALESCE(SUM(amount), 0) FROM fines WHERE is_paid=1"
-        ).fetchone()[0]
+            "SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE is_paid=TRUE"
+        ).fetchone()["total"]
 
     return {
         "total_loans": total_loans,
@@ -85,7 +85,7 @@ def popular_books():
 
 def borrowing_trends():
     query = """
-        SELECT substr(issue_date, 1, 7) AS month,
+        SELECT to_char(date_trunc('month', issue_date), 'YYYY-MM') AS month,
                COUNT(*) AS loans
         FROM loans
         GROUP BY month
@@ -105,7 +105,7 @@ def overdue_report():
         JOIN book_copies c ON c.copy_id=l.copy_id
         JOIN books b ON b.book_id=c.book_id
         WHERE l.return_date IS NULL
-          AND date(l.due_date) < date('now')
+          AND l.due_date < CURRENT_DATE
     """
 
     with get_db() as db:

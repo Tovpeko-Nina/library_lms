@@ -20,7 +20,7 @@ def borrow_book(data, librarian):
             (data.user_id,),
         ).fetchone()
         copy = db.execute(
-            "SELECT * FROM book_copies WHERE copy_id=?",
+            "SELECT * FROM book_copies WHERE copy_id=? FOR UPDATE",
             (data.copy_id,),
         ).fetchone()
         policy = get_policy(db)
@@ -38,10 +38,10 @@ def borrow_book(data, librarian):
             raise HTTPException(400, "Экземпляр недоступен")
 
         active_count = db.execute(
-            "SELECT COUNT(*) FROM loans "
+            "SELECT COUNT(*) AS count FROM loans "
             "WHERE user_id=? AND return_date IS NULL",
             (data.user_id,),
-        ).fetchone()[0]
+        ).fetchone()["count"]
 
         if active_count >= policy["max_books_per_user"]:
             raise HTTPException(400, "Достигнут лимит книг")
@@ -94,7 +94,7 @@ def add_notification(db, user_id, kind, title, message, link):
         INSERT INTO notifications (
             notification_id, user_id, type, title,
             message, sent_date, link
-        ) VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
+        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
         """,
         (uuid.uuid4().hex, user_id, kind, title, message, link),
     )
@@ -103,7 +103,7 @@ def add_notification(db, user_id, kind, title, message, link):
 def return_book(data):
     with get_db() as db:
         loan = db.execute(
-            "SELECT * FROM loans WHERE loan_id=? AND return_date IS NULL",
+            "SELECT * FROM loans WHERE loan_id=? AND return_date IS NULL FOR UPDATE",
             (data.loan_id,),
         ).fetchone()
         policy = get_policy(db)
@@ -112,7 +112,7 @@ def return_book(data):
             raise HTTPException(404, "Активная выдача не найдена")
 
         today = date.today()
-        due_date = date.fromisoformat(loan["due_date"])
+        due_date = loan["due_date"]
         grace = policy["overdue_grace_period"] or 0
         overdue_days = max(0, (today - due_date).days - grace)
         fine = overdue_days * policy["daily_fine_rate"]
@@ -138,8 +138,8 @@ def return_book(data):
             """,
             (
                 str(today),
-                int(data.lost),
-                int(data.damaged),
+                data.lost,
+                data.damaged,
                 data.damage_note,
                 fine,
                 str(today),
@@ -151,18 +151,18 @@ def return_book(data):
             """
             UPDATE book_copies SET
                 status=?, issue_date=NULL, due_date=NULL,
-                damage_description=CASE WHEN ?=1 THEN ? ELSE damage_description END,
-                damaged_date=CASE WHEN ?=1 THEN ? ELSE damaged_date END,
-                lost_date=CASE WHEN ?=1 THEN ? ELSE lost_date END,
-                lost_by_user_id=CASE WHEN ?=1 THEN ? ELSE lost_by_user_id END
+                damage_description=CASE WHEN ?=TRUE THEN ? ELSE damage_description END,
+                damaged_date=CASE WHEN ?=TRUE THEN ? ELSE damaged_date END,
+                lost_date=CASE WHEN ?=TRUE THEN ? ELSE lost_date END,
+                lost_by_user_id=CASE WHEN ?=TRUE THEN ? ELSE lost_by_user_id END
             WHERE copy_id=?
             """,
             (
                 status,
-                int(data.damaged), data.damage_note,
-                int(data.damaged), str(today),
-                int(data.lost), str(today),
-                int(data.lost), loan["user_id"],
+                data.damaged, data.damage_note,
+                data.damaged, today,
+                data.lost, today,
+                data.lost, loan["user_id"],
                 loan["copy_id"],
             ),
         )
@@ -208,7 +208,7 @@ def return_book(data):
 def renew_loan(data, user):
     with get_db() as db:
         loan = db.execute(
-            "SELECT * FROM loans WHERE loan_id=? AND return_date IS NULL",
+            "SELECT * FROM loans WHERE loan_id=? AND return_date IS NULL FOR UPDATE",
             (data.loan_id,),
         ).fetchone()
         policy = get_policy(db)
@@ -222,11 +222,11 @@ def renew_loan(data, user):
         if loan["renewal_count"] >= policy["max_renewals"]:
             raise HTTPException(400, "Достигнут лимит продлений")
 
-        new_due_date = date.fromisoformat(loan["due_date"])
+        new_due_date = loan["due_date"]
         new_due_date += timedelta(days=policy["renewal_days"])
 
         db.execute(
-            "UPDATE loans SET due_date=?, is_renewed=1, "
+            "UPDATE loans SET due_date=?, is_renewed=TRUE, "
             "renewal_count=renewal_count+1 WHERE loan_id=?",
             (str(new_due_date), data.loan_id),
         )
@@ -299,7 +299,7 @@ def list_overdue_loans():
         JOIN books b ON b.book_id=c.book_id
         JOIN users u ON u.user_id=l.user_id
         WHERE l.return_date IS NULL
-          AND date(l.due_date) < date('now')
+          AND l.due_date < CURRENT_DATE
         ORDER BY l.due_date
     """
 

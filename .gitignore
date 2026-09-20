@@ -8,9 +8,20 @@ venv/
 
 # Environment variables
 .env
+.env.*
+!.env.example
 
-# Local database
-data/*.db
+# Test and analysis artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
 
 # IDE
 .vscode/

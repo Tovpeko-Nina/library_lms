@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from app.core.database import get_db
 
 
-def reserve_book(book_id, user_id):
+def reserve_book(book_id, user_id, publication_year=None, edition_number=None):
     with get_db() as db:
         book = db.execute(
             "SELECT 1 FROM books WHERE book_id=?",
@@ -28,34 +28,59 @@ def reserve_book(book_id, user_id):
         if active:
             raise HTTPException(400, "У вас уже есть активная бронь этой книги")
 
-        copy = db.execute(
+        queued = db.execute(
             """
+            SELECT 1 FROM book_queue
+            WHERE user_id=? AND book_id=?
+              AND status IN ('WAITING', 'NOTIFIED')
+            """,
+            (user_id, book_id),
+        ).fetchone()
+
+        if queued:
+            raise HTTPException(400, "Вы уже находитесь в очереди на эту книгу")
+
+        copy_query = """
             SELECT * FROM book_copies
             WHERE book_id=? AND status='AVAILABLE'
+        """
+        copy_params = [book_id]
+        if publication_year is not None:
+            copy_query += " AND publication_year=?"
+            copy_params.append(publication_year)
+        if edition_number is not None:
+            copy_query += " AND edition_number=?"
+            copy_params.append(edition_number)
+        copy_query += """
+            ORDER BY copy_number
             LIMIT 1
-            """,
-            (book_id,),
-        ).fetchone()
+            FOR UPDATE SKIP LOCKED
+        """
+        copy = db.execute(copy_query, copy_params).fetchone()
 
         if not copy:
             position = db.execute(
                 """
-                SELECT COALESCE(MAX(position), 0) + 1
+                SELECT COALESCE(MAX(position), 0) + 1 AS next_position
                 FROM book_queue
                 WHERE book_id=? AND status IN ('WAITING', 'NOTIFIED')
                 """,
                 (book_id,),
-            ).fetchone()[0]
+            ).fetchone()["next_position"]
 
             queue_id = uuid.uuid4().hex
             db.execute(
                 """
                 INSERT INTO book_queue (
                     queue_id, book_id, user_id,
-                    position, status, created_at
-                ) VALUES (?, ?, ?, ?, 'WAITING', datetime('now'))
+                    position, status, created_at,
+                    preferred_publication_year, preferred_edition_number
+                ) VALUES (?, ?, ?, ?, 'WAITING', CURRENT_TIMESTAMP, ?, ?)
                 """,
-                (queue_id, book_id, user_id, position),
+                (
+                    queue_id, book_id, user_id, position,
+                    publication_year, edition_number,
+                ),
             )
 
             return {"queued": True, "queue_id": queue_id, "position": position}
@@ -66,10 +91,14 @@ def reserve_book(book_id, user_id):
             """
             INSERT INTO reservations (
                 reservation_id, copy_id, user_id,
-                reservation_date, status, expiry_date, priority
-            ) VALUES (?, ?, ?, date('now'), 'ACTIVE', date('now', '+3 day'), ?)
+                reservation_date, status, expiry_date, priority,
+                preferred_publication_year, preferred_edition_number
+            ) VALUES (?, ?, ?, CURRENT_DATE, 'ACTIVE', CURRENT_DATE + 3, ?, ?, ?)
             """,
-            (reservation_id, copy["copy_id"], user_id, copy["copy_number"] or 0),
+            (
+                reservation_id, copy["copy_id"], user_id,
+                copy["copy_number"] or 0, publication_year, edition_number,
+            ),
         )
 
         db.execute(

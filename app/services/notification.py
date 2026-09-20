@@ -30,7 +30,7 @@ def mark_read(notification_id, user_id):
         db.execute(
             """
             UPDATE notifications
-            SET is_read=1, read_date=datetime('now')
+            SET is_read=TRUE, read_date=CURRENT_TIMESTAMP
             WHERE notification_id=?
             """,
             (notification_id,),
@@ -44,7 +44,7 @@ def send_overdue_notifications():
         SELECT DISTINCT user_id
         FROM loans
         WHERE return_date IS NULL
-          AND date(due_date) < date('now')
+          AND due_date < CURRENT_DATE
     """
 
     with get_db() as db:
@@ -58,7 +58,7 @@ def send_overdue_notifications():
                     message, sent_date, link
                 ) VALUES (
                     ?, ?, 'OVERDUE_REMINDER', 'Просроченные книги',
-                    'У вас есть просроченная книга.', datetime('now'), ?
+                    'У вас есть просроченная книга.', CURRENT_TIMESTAMP, ?
                 )
                 """,
                 (uuid.uuid4().hex, reader["user_id"], "/my-loans"),
@@ -74,7 +74,7 @@ def users_with_overdue_books():
         FROM users u
         JOIN loans l ON l.user_id=u.user_id
         WHERE l.return_date IS NULL
-          AND date(l.due_date) < date('now')
+          AND l.due_date < CURRENT_DATE
     """
 
     with get_db() as db:

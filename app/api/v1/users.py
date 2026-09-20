@@ -42,6 +42,11 @@ def delete_user(user_id: str, user=Depends(roles("ADMIN"))):
     return user_service.deactivate_user(user_id)
 
 
+@router.delete("/{user_id}/permanent")
+def delete_user_permanently(user_id: str, user=Depends(roles("ADMIN"))):
+    return user_service.delete_user_permanently(user_id, user["user_id"])
+
+
 @router.get("/{user_id}")
 def get_user(user_id: str, user=Depends(roles("ADMIN", "LIBRARIAN"))):
     return user_service.get_user(user_id)

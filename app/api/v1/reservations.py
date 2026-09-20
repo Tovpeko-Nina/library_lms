@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.v1.deps import roles
 from app.services import reservation as reservation_service
@@ -10,6 +10,8 @@ router = APIRouter(prefix="/reservations", tags=["reservations"])
 
 class ReservationRequest(BaseModel):
     book_id: str
+    publication_year: int | None = Field(default=None, ge=1000, le=9999)
+    edition_number: int | None = Field(default=None, ge=1)
 
 
 @router.post("")
@@ -17,7 +19,12 @@ def reserve(
     data: ReservationRequest,
     user=Depends(roles("STUDENT", "EMPLOYEE")),
 ):
-    return reservation_service.reserve_book(data.book_id, user["user_id"])
+    return reservation_service.reserve_book(
+        data.book_id,
+        user["user_id"],
+        data.publication_year,
+        data.edition_number,
+    )
 
 
 @router.get("/me")

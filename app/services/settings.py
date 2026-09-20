@@ -33,7 +33,7 @@ def update_policy(data, user_id):
                 max_books_per_user=?, max_loan_days=?, max_renewals=?,
                 daily_fine_rate=?, lost_book_fee=?, damaged_book_fee=?,
                 renewal_days=?, max_fine_amount=?, overdue_grace_period=?,
-                updated_at=datetime('now'), updated_by=?
+                updated_at=CURRENT_TIMESTAMP, updated_by=?
             """,
             (
                 data.maxBooksPerUser,

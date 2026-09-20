@@ -17,7 +17,7 @@ class User:
 
 
 def user_from_row(row):
-    """Преобразовать строку SQLite в объект User."""
+    """Преобразовать строку результата БД в объект User."""
     return User(
         user_id=row["user_id"],
         login=row["login"],

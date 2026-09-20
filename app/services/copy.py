@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import HTTPException
 
 from app.core.database import get_db
@@ -57,11 +59,11 @@ def change_status(copy_id, data, librarian_id):
                 new_status, reason, changed_date
             )
             VALUES (
-                lower(hex(randomblob(16))), ?, ?, ?, ?, ?, datetime('now')
+                ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
             )
             """,
             (
-                copy_id,
+                uuid.uuid4(), copy_id,
                 librarian_id,
                 old["status"],
                 data.status,

@@ -17,15 +17,15 @@ def home(request: Request):
     """Главная страница со статистикой библиотеки."""
     with get_db() as db:
         stats = {
-            "books": db.execute("SELECT COUNT(*) FROM books").fetchone()[0],
-            "copies": db.execute("SELECT COUNT(*) FROM book_copies").fetchone()[0],
+            "books": db.execute("SELECT COUNT(*) AS count FROM books").fetchone()["count"],
+            "copies": db.execute("SELECT COUNT(*) AS count FROM book_copies").fetchone()["count"],
             "active_loans": db.execute(
-                "SELECT COUNT(*) FROM loans WHERE return_date IS NULL"
-            ).fetchone()[0],
+                "SELECT COUNT(*) AS count FROM loans WHERE return_date IS NULL"
+            ).fetchone()["count"],
             "readers": db.execute(
-                "SELECT COUNT(*) FROM users "
-                "WHERE role IN ('STUDENT','EMPLOYEE') AND is_active=1"
-            ).fetchone()[0],
+                "SELECT COUNT(*) AS count FROM users "
+                "WHERE role IN ('STUDENT','EMPLOYEE') AND is_active=TRUE"
+            ).fetchone()["count"],
         }
 
         popular = db.execute(
