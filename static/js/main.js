@@ -18,15 +18,16 @@ if(login)login.classList.add('hidden');
 if(reg)reg.classList.add('hidden');
 if(out)out.classList.remove('hidden');
 try{const u=await this.api('/users/me');
-if(dash)dash.classList.remove('hidden');
-if(admin&&['ADMIN','LIBRARIAN'].includes(u.role))admin.classList.remove('hidden');
+const isStaff=['ADMIN','LIBRARIAN'].includes(u.role);
+if(dash&&!isStaff){dash.classList.remove('hidden');dash.href='/dashboard';dash.textContent='Кабинет'}
+if(admin&&isStaff){admin.classList.add('hidden')}
 if(name){name.textContent=u.first_name+' '+u.last_name;
-name.onclick=()=>location.href='/dashboard';
+name.onclick=()=>location.href=isStaff?'/admin':'/dashboard';
 name.style.cursor='pointer'}}catch{localStorage.removeItem('lms_token')}},
  async login(e){e.preventDefault();
 try{const d=await this.api('/auth/login',{method:'POST',body:JSON.stringify({login:document.getElementById('login').value,password:document.getElementById('password').value})});
 localStorage.setItem('lms_token',d.access_token);
-location.href='/dashboard'}catch(err){this.toast(err.message)}return false},
+location.href=['ADMIN','LIBRARIAN'].includes(d.role)?'/admin':'/dashboard'}catch(err){this.toast(err.message)}return false},
  async register(e){e.preventDefault();
 const result=document.getElementById('register-result');
 try{const d=await this.api('/auth/register',{method:'POST',body:JSON.stringify({login:reg_login.value,email:email.value,password:reg_password.value,first_name:first_name.value,last_name:last_name.value,role:role.value})});
@@ -38,11 +39,17 @@ result.textContent=err.message}return false},
 location.href='/login'},
  need(){if(!this.token()){location.href='/login';
 return false}return true},
- async reserve(bookId){if(!this.need())return;
-try{await this.api('/reservations',{method:'POST',body:JSON.stringify({book_id:bookId})});
-this.toast('Книга забронирована')}catch(e){this.toast(e.message)}},
+ reserve(bookId){if(!this.need())return;
+if(document.getElementById('reservation-modal'))return;
+const modal=document.createElement('div');modal.id='reservation-modal';modal.className='modal-backdrop';
+modal.innerHTML=`<div class="modal-card modal-card-compact" role="dialog" aria-modal="true" aria-labelledby="reservation-modal-title"><div class="modal-head"><div><div class="eyebrow">БРОНИРОВАНИЕ</div><h2 id="reservation-modal-title">Заказать книгу</h2><p>Если выпуск не важен, оставьте дополнительные поля пустыми.</p></div><button class="modal-close" type="button" aria-label="Закрыть" onclick="LMS.closeReservationForm()">×</button></div><form onsubmit="return LMS.submitReservation(event,'${bookId}')"><div class="form-grid"><label>Год издания <span class="optional">необязательно</span><input id="reserve_year" type="number" min="1000" max="9999" placeholder="Например, 2024"></label><label>Номер издания <span class="optional">необязательно</span><input id="reserve_edition" type="number" min="1" placeholder="Например, 2"></label></div><div class="reservation-hint">Без уточнений система выберет любой доступный экземпляр. Если подходящего выпуска сейчас нет, вы будете добавлены в очередь с указанными предпочтениями.</div><div class="modal-actions"><button class="btn btn-light" type="button" onclick="LMS.closeReservationForm()">Отмена</button><button id="reserve_submit" class="btn btn-primary" type="submit">Подтвердить заказ</button></div></form></div>`;
+modal.addEventListener('click',event=>{if(event.target===modal)this.closeReservationForm()});modal.addEventListener('keydown',event=>{if(event.key==='Escape')this.closeReservationForm()});document.body.appendChild(modal);document.body.classList.add('modal-open');document.getElementById('reserve_year').focus()},
+ closeReservationForm(){const modal=document.getElementById('reservation-modal');if(modal)modal.remove();document.body.classList.remove('modal-open')},
+ async submitReservation(e,bookId){e.preventDefault();const year=document.getElementById('reserve_year').value;const edition=document.getElementById('reserve_edition').value;const button=document.getElementById('reserve_submit');button.disabled=true;button.textContent='Оформляем…';
+try{const result=await this.api('/reservations',{method:'POST',body:JSON.stringify({book_id:bookId,publication_year:year?Number(year):null,edition_number:edition?Number(edition):null})});this.closeReservationForm();this.toast(result.queued?`Вы добавлены в очередь. Позиция: ${result.position}`:'Книга забронирована')}catch(error){this.toast(error.message);button.disabled=false;button.textContent='Подтвердить заказ'}return false},
  async renderDashboard(){if(!this.need())return;
 try{const u=await this.api('/users/me');
+if(['ADMIN','LIBRARIAN'].includes(u.role)){location.replace('/admin');return}
 const loans=await this.api('/loans/me');
 const fines=await this.api('/fines/me');
 const notes=await this.api('/notifications');
@@ -69,31 +76,43 @@ document.getElementById('fines-page').innerHTML=rows.length?`<div class="table-w
  async payFine(id){try{await this.api('/fines/pay/'+id,{method:'POST'});
 this.toast('Штраф отмечен как оплаченный');
 this.renderFines()}catch(e){this.toast(e.message)}},
- async renderAdminDashboard(){if(!this.need())return;
+async renderAdminDashboard(){if(!this.need())return;
 try{const u=await this.api('/users/me');
 if(!['ADMIN','LIBRARIAN'].includes(u.role))throw Error('Доступ только для сотрудников библиотеки');
 const [users,loans,inv]=await Promise.all([this.api('/users'),this.api('/loans/active'),this.api('/reports/inventory')]);
-document.getElementById('admin-dashboard').innerHTML=`<div class="dashboard-grid"><div class="stat"><b>${users.length}</b><span>Пользователей</span></div><div class="stat"><b>${loans.length}</b><span>Активных выдач</span></div><div class="stat"><b>${inv.lost_books}</b><span>Утерянных экземпляров</span></div></div><div class="panel" style="margin-top:20px"><div class="action-grid"><a class="action-card" href="/admin/users"><b>Пользователи</b><span>Верификация и управление аккаунтами</span></a><a class="action-card" href="/admin/books"><b>Книги</b><span>Издания, экземпляры и статусы</span></a><a class="action-card" href="/admin/loans"><b>Книговыдача</b><span>Выдать и обработать возврат</span></a><a class="action-card" href="/reports"><b>Отчёты</b><span>Инвентарь и аналитика</span></a>${u.role==='ADMIN'?'<a class="action-card" href="/settings"><b>Настройки</b><span>Правила книговыдачи</span></a>':''}</div></div>`}catch(e){this.toast(e.message)}},
- async renderUsers(){if(!this.need())return;
-try{const rows=await this.api('/users');
-document.getElementById('users-page').innerHTML=`<div class="toolbar"><button class="btn btn-light" onclick="LMS.renderUsers()">Обновить</button><button class="btn btn-primary" onclick="LMS.createLibrarian()">+ Библиотекарь</button></div><div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Роль</th><th>Email</th><th>Верификация</th><th>Активен</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td><b>${x.first_name} ${x.last_name}</b><br><small>${x.login}</small></td><td>${x.role}</td><td>${x.email}</td><td>${x.is_verified?'Да':'Нет'}</td><td>${x.is_active?'Да':'Нет'}</td><td>${!x.is_verified&&['STUDENT','EMPLOYEE'].includes(x.role)?`<button class="btn btn-light" onclick="LMS.verify('${x.user_id}')">Верифицировать</button>`:''}${x.role!=='ADMIN'&&x.is_active?` <button class="btn btn-light danger" onclick="LMS.deactivate('${x.user_id}')">Деактивировать</button>`:''}</td></tr>`).join('')}</tbody></table></div>`}catch(e){this.toast(e.message)}},
+const role=u.role==='ADMIN'?'Администратор':'Библиотекарь';
+document.getElementById('admin-dashboard').innerHTML=`<div class="admin-welcome"><div><span class="role-badge">${role}</span><h2>Здравствуйте, ${u.first_name}!</h2><p>Система готова к работе. Выберите раздел или проверьте текущие показатели.</p></div><a class="btn btn-glass" href="/profile"><span>Профиль</span><span aria-hidden="true">→</span></a></div><div class="dashboard-grid dashboard-grid-four"><div class="stat stat-accent"><span class="stat-icon">👥</span><b>${users.length}</b><span>Пользователей</span></div><div class="stat"><span class="stat-icon">↗</span><b>${loans.length}</b><span>Активных выдач</span></div><div class="stat"><span class="stat-icon">✓</span><b>${inv.available_books}</b><span>Доступно экземпляров</span></div><div class="stat"><span class="stat-icon">!</span><b>${inv.lost_books}</b><span>Утеряно</span></div></div><div class="panel admin-actions"><div class="panel-heading"><div><span class="eyebrow">БЫСТРЫЙ ДОСТУП</span><h2>Управление библиотекой</h2></div></div><div class="action-grid"><a class="action-card" href="/admin/users"><span class="action-icon">👥</span><b>Пользователи</b><span>Верификация и управление аккаунтами</span><em>Открыть →</em></a><a class="action-card" href="/admin/books"><span class="action-icon">▤</span><b>Книги</b><span>Издания, экземпляры и статусы</span><em>Открыть →</em></a><a class="action-card" href="/admin/loans"><span class="action-icon">↔</span><b>Книговыдача</b><span>Выдать книгу и оформить возврат</span><em>Открыть →</em></a><a class="action-card" href="/reports"><span class="action-icon">▥</span><b>Отчёты</b><span>Инвентарь, просрочки и аналитика</span><em>Открыть →</em></a>${u.role==='ADMIN'?'<a class="action-card" href="/settings"><span class="action-icon">⚙</span><b>Настройки</b><span>Правила выдачи и штрафов</span><em>Открыть →</em></a>':''}</div></div>`}catch(e){const root=document.getElementById('admin-dashboard');if(root)root.innerHTML=`<div class="empty">Не удалось загрузить панель. <button class="btn btn-light" onclick="LMS.renderAdminDashboard()">Повторить</button></div>`;this.toast(e.message)}},
+async renderUsers(){if(!this.need())return;
+try{const [rows,current]=await Promise.all([this.api('/users'),this.api('/users/me')]);
+document.getElementById('users-page').innerHTML=`<div class="toolbar"><button class="btn btn-light" onclick="LMS.renderUsers()">Обновить</button>${current.role==='ADMIN'?'<button class="btn btn-primary" onclick="LMS.createLibrarian()">+ Библиотекарь</button>':''}</div><div class="table-wrap"><table><thead><tr><th>Пользователь</th><th>Роль</th><th>Email</th><th>Верификация</th><th>Активен</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td><b>${x.first_name} ${x.last_name}</b><br><small>${x.login}</small></td><td>${x.role}</td><td>${x.email}</td><td>${x.is_verified?'Да':'Нет'}</td><td>${x.is_active?'Да':'Нет'}</td><td>${!x.is_verified&&['STUDENT','EMPLOYEE'].includes(x.role)?`<button class="btn btn-light" onclick="LMS.verify('${x.user_id}')">Верифицировать</button>`:''}${current.role==='ADMIN'&&x.role!=='ADMIN'&&x.is_active?` <button class="btn btn-light danger" onclick="LMS.deactivate('${x.user_id}')">Деактивировать</button>`:''}${current.role==='ADMIN'&&x.role!=='ADMIN'&&!x.is_active?` <button class="btn btn-danger" onclick="LMS.deleteUser('${x.user_id}')">Удалить</button>`:''}</td></tr>`).join('')}</tbody></table></div>`}catch(e){this.toast(e.message)}},
  async verify(id){try{await this.api('/users/'+id+'/verify',{method:'PUT'});
 this.toast('Пользователь верифицирован');
 this.renderUsers()}catch(e){this.toast(e.message)}},
- async deactivate(id){if(!confirm('Деактивировать пользователя?'))return;
+async deactivate(id){if(!confirm('Деактивировать пользователя?'))return;
 try{await this.api('/users/'+id,{method:'DELETE'});
 this.toast('Пользователь деактивирован');
 this.renderUsers()}catch(e){this.toast(e.message)}},
- async createLibrarian(){const login=prompt('Логин библиотекаря');
-if(!login)return;
-const email=prompt('Email');
-const password=prompt('Пароль');
-const first_name=prompt('Имя');
-const last_name=prompt('Фамилия');
-if(!email||!password||!first_name||!last_name)return;
-try{await this.api('/users/librarian',{method:'POST',body:JSON.stringify({login,email,password,first_name,last_name})});
-this.toast('Библиотекарь создан');
-this.renderUsers()}catch(e){this.toast(e.message)}},
+ async deleteUser(id){if(!confirm('Окончательно удалить пользователя? Это действие нельзя отменить.'))return;
+try{await this.api('/users/'+id+'/permanent',{method:'DELETE'});
+this.toast('Пользователь удалён');this.renderUsers()}catch(e){this.toast(e.message)}},
+ createLibrarian(){
+if(document.getElementById('librarian-modal'))return;
+const modal=document.createElement('div');
+modal.id='librarian-modal';
+modal.className='modal-backdrop';
+modal.innerHTML=`<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="librarian-modal-title"><div class="modal-head"><div><div class="eyebrow">НОВЫЙ СОТРУДНИК</div><h2 id="librarian-modal-title">Добавить библиотекаря</h2><p>Создайте учётную запись сотрудника библиотеки.</p></div><button class="modal-close" type="button" aria-label="Закрыть" onclick="LMS.closeLibrarianForm()">×</button></div><form id="librarian-form" onsubmit="return LMS.submitLibrarian(event)"><div class="form-grid"><label>Имя<input id="lib_first_name" name="first_name" required autocomplete="given-name" placeholder="Анна"></label><label>Фамилия<input id="lib_last_name" name="last_name" required autocomplete="family-name" placeholder="Иванова"></label><label>Логин<input id="lib_login" name="login" required minlength="3" maxlength="50" autocomplete="username" placeholder="a.ivanova"></label><label>Email<input id="lib_email" name="email" type="email" required autocomplete="email" placeholder="employee@library.ru"></label></div><label class="modal-password">Временный пароль<input id="lib_password" name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="Минимум 6 символов"><small>Передайте пароль сотруднику безопасным способом.</small></label><div class="modal-actions"><button class="btn btn-light" type="button" onclick="LMS.closeLibrarianForm()">Отмена</button><button id="lib_submit" class="btn btn-primary" type="submit">Создать библиотекаря</button></div></form></div>`;
+modal.addEventListener('click',event=>{if(event.target===modal)this.closeLibrarianForm()});
+modal.addEventListener('keydown',event=>{if(event.key==='Escape')this.closeLibrarianForm()});
+document.body.appendChild(modal);
+document.body.classList.add('modal-open');
+document.getElementById('lib_first_name').focus()},
+ closeLibrarianForm(){const modal=document.getElementById('librarian-modal');if(modal)modal.remove();document.body.classList.remove('modal-open')},
+ async submitLibrarian(e){e.preventDefault();
+const button=document.getElementById('lib_submit');
+const data={login:document.getElementById('lib_login').value.trim(),email:document.getElementById('lib_email').value.trim(),password:document.getElementById('lib_password').value,first_name:document.getElementById('lib_first_name').value.trim(),last_name:document.getElementById('lib_last_name').value.trim()};
+button.disabled=true;button.textContent='Создаём…';
+try{await this.api('/users/librarian',{method:'POST',body:JSON.stringify(data)});
+this.closeLibrarianForm();this.toast('Библиотекарь создан');this.renderUsers()}catch(error){this.toast(error.message);button.disabled=false;button.textContent='Создать библиотекаря'}return false},
  async renderAdminBooks(){if(!this.need())return;
 try{const rows=await this.api('/books?limit=100');
 document.getElementById('admin-books-page').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Книга</th><th>Автор</th><th>Жанр</th><th>Экземпляры</th><th></th></tr></thead><tbody>${rows.map(b=>`<tr><td><b>${b.title}</b><br><small>${b.isbn||'ISBN не указан'}</small></td><td>${b.author}</td><td>${b.genre||'—'}</td><td>${b.available_copies||0} / ${b.total_copies||0}</td><td><a class="btn btn-light" href="/books/${b.book_id}">Открыть</a> <button class="btn btn-light" onclick="LMS.addCopy('${b.book_id}')">+ Экземпляр</button></td></tr>`).join('')}</tbody></table></div>`}catch(e){this.toast(e.message)}},
@@ -106,9 +125,17 @@ this.createBook({title,author,genre,isbn})},
  async createBook(x){try{await this.api('/books',{method:'POST',body:JSON.stringify(x)});
 this.toast('Книга добавлена');
 this.renderAdminBooks()}catch(e){this.toast(e.message)}},
- async addCopy(book_id){const branch=prompt('Филиал: AVTOZAVODSKAYA / KORCHAGINA / PRYANISHNIKOVA','AVTOZAVODSKAYA');
+async addCopy(book_id){const branch=prompt('Филиал: AVTOZAVODSKAYA / KORCHAGINA / PRYANISHNIKOVA','AVTOZAVODSKAYA');
 if(!branch)return;
-try{await this.api('/books/'+book_id+'/copies',{method:'POST',body:JSON.stringify({branch,condition:'NEW'})});
+const yearValue=prompt('Год конкретного издания (обязательное поле, например 2024)','');
+if(yearValue===null)return;
+const editionValue=prompt('Номер издания (необязательно, например 1)','');
+if(!yearValue.trim()){this.toast('Укажите год издания');return}
+const publication_year=Number(yearValue);
+const edition_number=editionValue&&editionValue.trim()?Number(editionValue):null;
+if(!Number.isInteger(publication_year)||publication_year<1000||publication_year>9999){this.toast('Укажите корректный год издания');return}
+if(edition_number!==null&&(!Number.isInteger(edition_number)||edition_number<1)){this.toast('Номер издания должен быть положительным целым числом');return}
+try{await this.api('/books/'+book_id+'/copies',{method:'POST',body:JSON.stringify({branch,condition:'NEW',publication_year,edition_number})});
 this.toast('Экземпляр добавлен');
 this.renderAdminBooks()}catch(e){this.toast(e.message)}},
  async renderAdminLoans(){if(!this.need())return;
