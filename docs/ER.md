@@ -15,7 +15,6 @@ erDiagram
         TEXT address
         VARCHAR role
         BOOLEAN is_verified
-        TEXT verification_token
         DATE registration_date
         TEXT faculty
         TEXT department
@@ -23,6 +22,7 @@ erDiagram
         DATE graduation_date
         BOOLEAN is_active
         TIMESTAMPTZ last_login
+        INTEGER token_version
     }
 
     BOOKS {

@@ -10,10 +10,9 @@ def env_flag(name: str, default: bool = False) -> bool:
 
 
 SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
+if not SECRET_KEY or len(SECRET_KEY) < 32:
     raise RuntimeError(
-        "Переменная SECRET_KEY обязательна. "
-        "Скопируйте .env.example в .env и задайте собственное значение."
+        "SECRET_KEY обязателен и должен содержать не менее 32 символов."
     )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -23,5 +22,7 @@ if not DATABASE_URL:
         "Пример: postgresql://lms:lms@localhost:5432/lms"
     )
 
-INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD")
 SEED_DEMO_DATA = env_flag("SEED_DEMO_DATA", default=True)
+JWT_ISSUER = os.getenv("JWT_ISSUER", "library-lms")
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "library-lms-web")
+JWT_TTL_MINUTES = int(os.getenv("JWT_TTL_MINUTES", "30"))

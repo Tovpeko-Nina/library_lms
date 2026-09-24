@@ -18,7 +18,10 @@ def current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
     except Exception:
         raise HTTPException(401, "Недействительный токен")
 
-    return get_current_user(token_data["sub"])
+    user = get_current_user(token_data["sub"])
+    if token_data["ver"] != user["token_version"]:
+        raise HTTPException(401, "Токен отозван")
+    return user
 
 
 def roles(*allowed_roles):

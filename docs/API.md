@@ -34,6 +34,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/auth/login \
 | Метод | Путь | Роли | Назначение |
 |---|---|---|---|
 | GET/PUT | `/users/me` | авторизованные | получить/изменить профиль |
+| PUT | `/users/me/password` | авторизованные | сменить пароль после проверки текущего |
 | GET | `/users` | ADMIN, LIBRARIAN | список пользователей |
 | GET | `/users/{user_id}` | ADMIN, LIBRARIAN | карточка пользователя |
 | POST | `/users/librarian` | ADMIN | создать библиотекаря |
@@ -71,9 +72,10 @@ curl -X POST http://127.0.0.1:8000/api/v1/auth/login \
 | GET | `/loans/active` | ADMIN, LIBRARIAN | активные выдачи |
 | GET | `/loans/overdue` | ADMIN, LIBRARIAN | просрочки |
 | POST | `/reservations` | STUDENT, EMPLOYEE | бронь или очередь |
+| GET | `/reservations` | ADMIN, LIBRARIAN | активные брони и очередь читателей |
 | GET | `/reservations/me` | STUDENT, EMPLOYEE | собственные брони |
 | DELETE | `/reservations/{id}` | авторизованные | отменить бронь |
-| POST | `/reservations/{id}/fulfill` | ADMIN, LIBRARIAN | завершить бронь |
+| POST | `/reservations/{id}/fulfill` | ADMIN, LIBRARIAN | оформить бронь как выдачу |
 | GET | `/fines/me` | STUDENT, EMPLOYEE | собственные штрафы |
 | GET | `/fines` | ADMIN, LIBRARIAN | все штрафы |
 | GET | `/fines/unpaid` | ADMIN, LIBRARIAN | неоплаченные штрафы |

@@ -5,7 +5,7 @@ from datetime import date
 import psycopg
 from psycopg.rows import dict_row
 
-from .config import DATABASE_URL, INITIAL_ADMIN_PASSWORD, SEED_DEMO_DATA
+from .config import DATABASE_URL, SEED_DEMO_DATA
 
 
 class Database:
@@ -44,15 +44,18 @@ CREATE TABLE IF NOT EXISTS users (
     address TEXT,
     role VARCHAR(20) NOT NULL CHECK (role IN ('ADMIN','LIBRARIAN','STUDENT','EMPLOYEE')),
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    verification_token TEXT,
     registration_date DATE NOT NULL,
     faculty TEXT,
     department TEXT,
     group_name TEXT,
     graduation_date DATE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    last_login TIMESTAMPTZ
+    last_login TIMESTAMPTZ,
+    token_version INTEGER NOT NULL DEFAULT 0 CHECK (token_version >= 0)
 );
+
+ALTER TABLE users DROP COLUMN IF EXISTS verification_token;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_verified ON users(is_verified);
@@ -292,8 +295,6 @@ CREATE INDEX IF NOT EXISTS idx_queue_book_status_position
 
 def init_db():
     """Создать PostgreSQL-схему и, при настройке, начальные данные."""
-    from .security import hash_password
-
     with get_db() as db:
         db.execute(SCHEMA)
 
@@ -301,24 +302,6 @@ def init_db():
             db.execute(
                 "INSERT INTO borrowing_policy(policy_id) VALUES(?)",
                 (uuid.uuid4(),),
-            )
-
-        admin_exists = db.execute(
-            "SELECT 1 FROM users WHERE login='admin'"
-        ).fetchone()
-        if not admin_exists and INITIAL_ADMIN_PASSWORD:
-            db.execute(
-                """
-                INSERT INTO users (
-                    user_id, login, email, password_hash,
-                    first_name, last_name, role, is_verified, registration_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?)
-                """,
-                (
-                    uuid.uuid4(), "admin", "admin@library.local",
-                    hash_password(INITIAL_ADMIN_PASSWORD),
-                    "Администратор", "Системный", "ADMIN", date.today(),
-                ),
             )
 
         if not SEED_DEMO_DATA or db.execute("SELECT 1 FROM books LIMIT 1").fetchone():

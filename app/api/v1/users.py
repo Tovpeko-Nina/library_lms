@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.v1.deps import current_user, roles
-from app.schemas.user import LibrarianCreate, ProfileUpdate
+from app.schemas.user import LibrarianCreate, PasswordChange, ProfileUpdate
 from app.services import user as user_service
 
 
@@ -16,6 +16,11 @@ def me(user=Depends(current_user)):
 @router.put("/me")
 def update_me(data: ProfileUpdate, user=Depends(current_user)):
     return user_service.update_profile(user, data)
+
+
+@router.put("/me/password")
+def change_password(data: PasswordChange, user=Depends(current_user)):
+    return user_service.change_password(user, data)
 
 
 @router.get("")
