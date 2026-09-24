@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class BorrowRequest(BaseModel):
     copy_id: str
     user_id: str
+    reservation_id: str | None = None
 
 
 class ReturnRequest(BaseModel):

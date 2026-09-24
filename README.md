@@ -31,7 +31,7 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Задайте в `.env` собственные пароли и `SECRET_KEY`. Для локального запуска без контейнера предварительно создайте БД PostgreSQL, указанную в `DATABASE_URL`, затем экспортируйте настройки и запустите приложение:
+Задайте в `.env` собственные пароли PostgreSQL и случайный `SECRET_KEY` длиной не менее 32 символов. Для локального запуска без контейнера предварительно создайте БД PostgreSQL, указанную в `DATABASE_URL`, затем экспортируйте настройки и запустите приложение:
 
 ```bash
 set -a
@@ -46,7 +46,43 @@ uvicorn app.main:app --reload
 - OpenAPI UI: <http://127.0.0.1:8000/docs>;
 - healthcheck: <http://127.0.0.1:8000/health>.
 
-При первом запуске создаются таблицы PostgreSQL, администратор с логином `admin` (если задан `INITIAL_ADMIN_PASSWORD`) и демонстрационный каталог (если `SEED_DEMO_DATA=true`). Файл `.env` исключён из Git.
+При первом запуске создаются таблицы PostgreSQL и демонстрационный каталог (если `SEED_DEMO_DATA=true`). Администратор автоматически не создаётся: пароль не должен постоянно храниться в `.env`.
+
+Создайте первого администратора интерактивно:
+
+```bash
+python -m app.cli.create_admin
+```
+
+Пароль вводится скрыто, сразу преобразуется в bcrypt-хэш и не попадает в аргументы процесса, shell history или конфигурацию.
+
+## Единый командный интерфейс
+
+Основные действия выполняются через `make`:
+
+```bash
+make setup             # создать .venv, установить зависимости и подготовить .env
+make run               # локально запустить приложение
+make quality           # проверить синтаксис Python и JavaScript
+make migrate           # применить текущую схему PostgreSQL
+make backup            # сохранить БД в backups/
+make up                # запустить Docker Compose
+make down              # остановить Docker Compose, сохранив данные БД
+make container-check   # собрать, запустить и проверить контейнеры
+```
+
+Интерфейс также содержит будущие команды `make test`, `make verify` и
+`make restore`. В ЛР1 `make test` и, следовательно, `make verify` намеренно
+завершаются ошибкой: тестовый набор появится в ЛР3, и команда не должна создавать
+ложное ощущение успешной проверки. Восстановление уже доступно, но требует
+явного подтверждения:
+
+```bash
+make restore BACKUP_FILE=backups/lms_20260920_120000.dump CONFIRM_RESTORE=yes
+```
+
+До появления Alembic команда `make migrate` вызывает существующую идемпотентную
+инициализацию схемы. В ЛР3 за тем же интерфейсом будет стоять инструмент миграций.
 
 ## Docker Compose
 
@@ -56,6 +92,7 @@ uvicorn app.main:app --reload
 docker compose up --build
 docker compose ps
 curl --fail http://127.0.0.1:8000/health
+docker compose exec library-lms python -m app.cli.create_admin
 ```
 
 Compose запускает приложение и PostgreSQL во внутренней сети. Порт БД наружу не публикуется. Полная контейнерная проверка и ограничения контейнеров будут оформляться в ЛР4.
@@ -66,7 +103,7 @@ Compose запускает приложение и PostgreSQL во внутре�
 
 ```bash
 python -m compileall -q app
-SECRET_KEY=local-check-secret DATABASE_URL=postgresql://lms:password@127.0.0.1:5432/lms SEED_DEMO_DATA=false uvicorn app.main:app --host 127.0.0.1 --port 8000
+SECRET_KEY=local-check-secret-with-32-characters DATABASE_URL=postgresql://lms:password@127.0.0.1:5432/lms SEED_DEMO_DATA=false uvicorn app.main:app --host 127.0.0.1 --port 8000
 curl --fail http://127.0.0.1:8000/health
 ```
 

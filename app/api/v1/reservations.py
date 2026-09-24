@@ -32,6 +32,11 @@ def my_reservations(user=Depends(roles("STUDENT", "EMPLOYEE"))):
     return reservation_service.list_user_reservations(user["user_id"])
 
 
+@router.get("")
+def staff_requests(user=Depends(roles("LIBRARIAN", "ADMIN"))):
+    return reservation_service.list_staff_requests()
+
+
 @router.delete("/{reservation_id}")
 def cancel(
     reservation_id: str,
@@ -45,4 +50,4 @@ def fulfill(
     reservation_id: str,
     user=Depends(roles("LIBRARIAN", "ADMIN")),
 ):
-    return reservation_service.fulfill_reservation(reservation_id)
+    return reservation_service.fulfill_reservation(reservation_id, user)

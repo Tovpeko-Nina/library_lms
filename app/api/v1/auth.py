@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.api.v1.deps import current_user
 from app.schemas.user import LoginRequest, RegisterRequest
 from app.services import auth as auth_service
 
@@ -18,5 +19,5 @@ def login(data: LoginRequest):
 
 
 @router.post("/logout")
-def logout():
-    return {"message": "JWT stateless: токен перестанет действовать по истечении срока"}
+def logout(user=Depends(current_user)):
+    return auth_service.logout_user(user["user_id"])

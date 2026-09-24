@@ -1,5 +1,6 @@
 import uuid
 
+import psycopg
 from fastapi import HTTPException
 
 from app.core.database import get_db
@@ -133,8 +134,8 @@ def create_book(data):
                 """,
                 (book_id, *values),
             )
-    except Exception as error:
-        raise HTTPException(400, str(error))
+    except psycopg.IntegrityError:
+        raise HTTPException(400, "Книга с таким ISBN уже существует")
 
     return {"book_id": book_id}
 

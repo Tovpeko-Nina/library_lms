@@ -5,10 +5,37 @@ from fastapi import HTTPException
 from app.core.database import get_db
 
 
+def notify_staff(db, title, message):
+    """Сообщить активным сотрудникам о новой заявке читателя."""
+    staff = db.execute(
+        """
+        SELECT user_id FROM users
+        WHERE role IN ('ADMIN', 'LIBRARIAN') AND is_active=TRUE
+        """
+    ).fetchall()
+
+    for employee in staff:
+        db.execute(
+            """
+            INSERT INTO notifications (
+                notification_id, user_id, type, title,
+                message, sent_date, link
+            ) VALUES (?, ?, 'RESERVATION_REQUEST', ?, ?, CURRENT_TIMESTAMP, ?)
+            """,
+            (
+                uuid.uuid4().hex,
+                employee["user_id"],
+                title,
+                message,
+                "/admin/loans",
+            ),
+        )
+
+
 def reserve_book(book_id, user_id, publication_year=None, edition_number=None):
     with get_db() as db:
         book = db.execute(
-            "SELECT 1 FROM books WHERE book_id=?",
+            "SELECT title FROM books WHERE book_id=?",
             (book_id,),
         ).fetchone()
 
@@ -39,6 +66,11 @@ def reserve_book(book_id, user_id, publication_year=None, edition_number=None):
 
         if queued:
             raise HTTPException(400, "Вы уже находитесь в очереди на эту книгу")
+
+        reader = db.execute(
+            "SELECT login, first_name, last_name FROM users WHERE user_id=?",
+            (user_id,),
+        ).fetchone()
 
         copy_query = """
             SELECT * FROM book_copies
@@ -83,6 +115,13 @@ def reserve_book(book_id, user_id, publication_year=None, edition_number=None):
                 ),
             )
 
+            notify_staff(
+                db,
+                "Новая заявка на книгу",
+                f"{reader['first_name']} {reader['last_name']} ({reader['login']}) "
+                f"ожидает книгу «{book['title']}».",
+            )
+
             return {"queued": True, "queue_id": queue_id, "position": position}
 
         reservation_id = uuid.uuid4().hex
@@ -106,6 +145,13 @@ def reserve_book(book_id, user_id, publication_year=None, edition_number=None):
             (copy["copy_id"],),
         )
 
+        notify_staff(
+            db,
+            "Новая бронь читателя",
+            f"{reader['first_name']} {reader['last_name']} ({reader['login']}) "
+            f"забронировал(а) «{book['title']}».",
+        )
+
     return {"reservation_id": reservation_id, "queued": False}
 
 
@@ -123,6 +169,44 @@ def list_user_reservations(user_id):
         rows = db.execute(query, (user_id,)).fetchall()
 
     return [dict(row) for row in rows]
+
+
+def list_staff_requests():
+    """Вернуть сотруднику активные брони и очередь читателей."""
+    reservations_query = """
+        SELECT r.reservation_id, r.reservation_date, r.expiry_date,
+               r.preferred_publication_year, r.preferred_edition_number,
+               u.user_id, u.login, u.first_name, u.last_name,
+               b.book_id, b.title, b.author,
+               c.copy_id, c.inventory_number, c.branch,
+               c.publication_year, c.edition_number
+        FROM reservations r
+        JOIN users u ON u.user_id=r.user_id
+        JOIN book_copies c ON c.copy_id=r.copy_id
+        JOIN books b ON b.book_id=c.book_id
+        WHERE r.status='ACTIVE'
+        ORDER BY r.reservation_date, r.reservation_id
+    """
+    queue_query = """
+        SELECT q.queue_id, q.position, q.status, q.created_at,
+               q.preferred_publication_year, q.preferred_edition_number,
+               u.user_id, u.login, u.first_name, u.last_name,
+               b.book_id, b.title, b.author
+        FROM book_queue q
+        JOIN users u ON u.user_id=q.user_id
+        JOIN books b ON b.book_id=q.book_id
+        WHERE q.status IN ('WAITING', 'NOTIFIED')
+        ORDER BY q.position, q.created_at
+    """
+
+    with get_db() as db:
+        reservations = db.execute(reservations_query).fetchall()
+        queue = db.execute(queue_query).fetchall()
+
+    return {
+        "reservations": [dict(row) for row in reservations],
+        "queue": [dict(row) for row in queue],
+    }
 
 
 def cancel_reservation(reservation_id, user):
@@ -156,7 +240,8 @@ def cancel_reservation(reservation_id, user):
     return {"message": "Бронь отменена"}
 
 
-def fulfill_reservation(reservation_id):
+def fulfill_reservation(reservation_id, librarian):
+    """Оформить зарезервированный экземпляр как реальную выдачу."""
     with get_db() as db:
         reservation = db.execute(
             """
@@ -169,18 +254,13 @@ def fulfill_reservation(reservation_id):
         if not reservation:
             raise HTTPException(404, "Активная бронь не найдена")
 
-        db.execute(
-            "UPDATE reservations SET status='FULFILLED' WHERE reservation_id=?",
-            (reservation_id,),
-        )
+    # borrow_book повторно блокирует и проверяет бронь уже в транзакции выдачи.
+    from app.schemas.loan import BorrowRequest
+    from app.services.loan import borrow_book
 
-        db.execute(
-            """
-            UPDATE book_copies
-            SET status='AVAILABLE'
-            WHERE copy_id=? AND status='RESERVED'
-            """,
-            (reservation["copy_id"],),
-        )
-
-    return {"message": "Бронирование выполнено; экземпляр снова доступен для выдачи"}
+    request = BorrowRequest(
+        copy_id=str(reservation["copy_id"]),
+        user_id=str(reservation["user_id"]),
+        reservation_id=reservation_id,
+    )
+    return borrow_book(request, librarian)

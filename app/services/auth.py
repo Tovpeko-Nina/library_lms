@@ -1,14 +1,19 @@
-import secrets
 import uuid
 from datetime import date
 
 from fastapi import HTTPException
 
 from app.core.database import get_db
-from app.core.security import create_token, hash_password, verify_password
+from app.core.security import (
+    create_token,
+    hash_password,
+    verify_password,
+)
+from app.services.user import revoke_tokens
 
 
 ALLOWED_READER_ROLES = {"STUDENT", "EMPLOYEE"}
+DUMMY_PASSWORD_HASH = hash_password("dummy-password-that-is-never-used")
 
 
 def register_user(data):
@@ -26,7 +31,6 @@ def register_user(data):
             raise HTTPException(400, "Логин или email уже занят")
 
         user_id = uuid.uuid4().hex
-        verification_token = secrets.token_urlsafe(24)
         password_hash = hash_password(data.password)
 
         db.execute(
@@ -34,8 +38,8 @@ def register_user(data):
             INSERT INTO users (
                 user_id, login, email, password_hash,
                 first_name, last_name, role, is_verified,
-                verification_token, registration_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?, ?)
+                registration_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?)
             """,
             (
                 user_id,
@@ -45,15 +49,13 @@ def register_user(data):
                 data.first_name,
                 data.last_name,
                 data.role,
-                verification_token,
-                str(date.today()),
+                date.today(),
             ),
         )
 
     return {
         "message": "Регистрация выполнена",
         "user_id": user_id,
-        "verification_token": verification_token,
     }
 
 
@@ -66,6 +68,9 @@ def login_user(data):
         ).fetchone()
 
     if not user:
+        # Выполняем дорогостоящую проверку и для неизвестного логина, чтобы
+        # уменьшить различие во времени ответа и затруднить перебор логинов.
+        verify_password(data.password, DUMMY_PASSWORD_HASH)
         raise HTTPException(401, "Неверный логин или пароль")
 
     if not verify_password(data.password, user["password_hash"]):
@@ -82,3 +87,7 @@ def login_user(data):
         "token_type": "bearer",
         "role": user["role"],
     }
+
+
+def logout_user(user_id):
+    return revoke_tokens(user_id)

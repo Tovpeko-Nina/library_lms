@@ -3,7 +3,15 @@ import uuid
 from fastapi import HTTPException
 
 from app.core.database import get_db
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
+
+
+def public_user(user):
+    """Удалить внутренние поля аутентификации из данных для HTTP-ответа."""
+    result = dict(user)
+    result.pop("password_hash", None)
+    result.pop("token_version", None)
+    return result
 
 
 def get_current_user(user_id):
@@ -20,7 +28,7 @@ def get_current_user(user_id):
 
 
 def get_profile(user):
-    return dict(user)
+    return public_user(user)
 
 
 def update_profile(user, data):
@@ -63,7 +71,7 @@ def list_users(role=None, verified=None):
     with get_db() as db:
         rows = db.execute(query, params).fetchall()
 
-    return [dict(row) for row in rows]
+    return [public_user(row) for row in rows]
 
 
 def get_user(user_id):
@@ -76,7 +84,7 @@ def get_user(user_id):
     if not row:
         raise HTTPException(404, "Пользователь не найден")
 
-    return dict(row)
+    return public_user(row)
 
 
 def create_librarian(data):
@@ -110,6 +118,67 @@ def create_librarian(data):
         )
 
     return {"user_id": user_id}
+
+
+def create_admin(data):
+    """Создать первого администратора из интерактивной CLI-команды."""
+    with get_db() as db:
+        exists = db.execute(
+            "SELECT 1 FROM users WHERE login=? OR email=?",
+            (data.login, data.email),
+        ).fetchone()
+
+        if exists:
+            raise ValueError("Пользователь с таким логином или email уже существует")
+
+        user_id = uuid.uuid4()
+        db.execute(
+            """
+            INSERT INTO users (
+                user_id, login, email, password_hash,
+                first_name, last_name, role, is_verified,
+                registration_date
+            ) VALUES (?, ?, ?, ?, ?, ?, 'ADMIN', TRUE, CURRENT_DATE)
+            """,
+            (
+                user_id,
+                data.login,
+                data.email,
+                hash_password(data.password),
+                data.first_name,
+                data.last_name,
+            ),
+        )
+
+    return {"user_id": str(user_id)}
+
+
+def change_password(user, data):
+    """Сменить пароль после проверки текущего пароля."""
+    if not verify_password(data.current_password, user["password_hash"]):
+        raise HTTPException(400, "Текущий пароль указан неверно")
+
+    if data.current_password == data.new_password:
+        raise HTTPException(400, "Новый пароль должен отличаться от текущего")
+
+    with get_db() as db:
+        db.execute(
+            "UPDATE users SET password_hash=?, token_version=token_version+1 "
+            "WHERE user_id=?",
+            (hash_password(data.new_password), user["user_id"]),
+        )
+
+    return {"message": "Пароль изменён"}
+
+
+def revoke_tokens(user_id):
+    """Отозвать все ранее выданные пользователю JWT."""
+    with get_db() as db:
+        db.execute(
+            "UPDATE users SET token_version=token_version+1 WHERE user_id=?",
+            (user_id,),
+        )
+    return {"message": "Сеанс завершён"}
 
 
 def deactivate_user(user_id):
@@ -181,7 +250,7 @@ def verify_user(user_id):
         db.execute(
             """
             UPDATE users
-            SET is_verified=TRUE, verification_token=NULL
+            SET is_verified=TRUE
             WHERE user_id=?
             """,
             (user_id,),

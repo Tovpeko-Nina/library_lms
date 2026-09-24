@@ -25,6 +25,26 @@ def borrow_book(data, librarian):
         ).fetchone()
         policy = get_policy(db)
 
+        reservation = None
+        if data.reservation_id:
+            reservation = db.execute(
+                """
+                SELECT * FROM reservations
+                WHERE reservation_id=? AND status='ACTIVE'
+                FOR UPDATE
+                """,
+                (data.reservation_id,),
+            ).fetchone()
+
+            if not reservation:
+                raise HTTPException(404, "Активная бронь не найдена")
+
+            if (
+                str(reservation["user_id"]) != str(data.user_id)
+                or str(reservation["copy_id"]) != str(data.copy_id)
+            ):
+                raise HTTPException(400, "Бронь не соответствует читателю или экземпляру")
+
         if not reader or not copy:
             raise HTTPException(404, "Пользователь/экземпляр не найден")
 
@@ -34,7 +54,20 @@ def borrow_book(data, librarian):
         if not reader["is_verified"]:
             raise HTTPException(403, "Пользователь не верифицирован")
 
-        if copy["status"] != "AVAILABLE":
+        if copy["status"] == "RESERVED":
+            if reservation is None:
+                reservation = db.execute(
+                    """
+                    SELECT * FROM reservations
+                    WHERE copy_id=? AND status='ACTIVE'
+                    FOR UPDATE
+                    """,
+                    (data.copy_id,),
+                ).fetchone()
+
+            if not reservation or str(reservation["user_id"]) != str(data.user_id):
+                raise HTTPException(400, "Экземпляр забронирован другим читателем")
+        elif copy["status"] != "AVAILABLE":
             raise HTTPException(400, "Экземпляр недоступен")
 
         active_count = db.execute(
@@ -76,6 +109,16 @@ def borrow_book(data, librarian):
             (str(issue_date), str(due_date), data.copy_id),
         )
 
+        if reservation:
+            db.execute(
+                """
+                UPDATE reservations
+                SET status='FULFILLED'
+                WHERE reservation_id=? AND status='ACTIVE'
+                """,
+                (reservation["reservation_id"],),
+            )
+
         add_notification(
             db,
             data.user_id,
@@ -85,7 +128,11 @@ def borrow_book(data, librarian):
             "/my-loans",
         )
 
-    return {"loan_id": loan_id, "due_date": str(due_date)}
+    return {
+        "loan_id": loan_id,
+        "due_date": str(due_date),
+        "reservation_fulfilled": reservation is not None,
+    }
 
 
 def add_notification(db, user_id, kind, title, message, link):
