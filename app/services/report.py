@@ -4,14 +4,12 @@ from app.core.database import get_db
 def inventory_report():
     with get_db() as db:
         rows = db.execute(
-            "SELECT status, COUNT(*) AS count "
-            "FROM book_copies GROUP BY status"
+            "SELECT status, COUNT(*) AS count FROM book_copies GROUP BY status"
         ).fetchall()
         counts = {row["status"]: row["count"] for row in rows}
 
         rows = db.execute(
-            "SELECT branch, COUNT(*) AS count "
-            "FROM book_copies GROUP BY branch"
+            "SELECT branch, COUNT(*) AS count FROM book_copies GROUP BY branch"
         ).fetchall()
         branches = {row["branch"]: row["count"] for row in rows}
 
@@ -52,8 +50,7 @@ def usage_report():
     with get_db() as db:
         total_loans = db.execute("SELECT COUNT(*) AS count FROM loans").fetchone()["count"]
         total_readers = db.execute(
-            "SELECT COUNT(*) AS count FROM users "
-            "WHERE role IN ('STUDENT', 'EMPLOYEE')"
+            "SELECT COUNT(*) AS count FROM users WHERE role IN ('STUDENT', 'EMPLOYEE')"
         ).fetchone()["count"]
         fines = db.execute(
             "SELECT COALESCE(SUM(amount), 0) AS total FROM fines WHERE is_paid=TRUE"

@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends
 from app.api.v1.deps import current_user, roles
 from app.services import notification as notification_service
 
-
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 

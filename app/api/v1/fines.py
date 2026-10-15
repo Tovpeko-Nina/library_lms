@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends
 from app.api.v1.deps import roles
 from app.services import fine as fine_service
 
-
 router = APIRouter(prefix="/fines", tags=["fines"])
 
 

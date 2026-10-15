@@ -2,7 +2,6 @@ from getpass import getpass
 
 from pydantic import ValidationError
 
-from app.core.database import init_db
 from app.schemas.user import AdminCreate
 from app.services.user import create_admin
 
@@ -28,7 +27,6 @@ def main():
             first_name=first_name,
             last_name=last_name,
         )
-        init_db()
         result = create_admin(data)
     except ValidationError as error:
         raise SystemExit(f"Некорректные данные:\n{error}") from error

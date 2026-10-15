@@ -1,14 +1,14 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BorrowingPolicyUpdate(BaseModel):
-    maxBooksPerUser: int
-    maxBorrowDays: int
-    maxRenewCount: int
+    maxBooksPerUser: int = Field(ge=1)
+    maxBorrowDays: int = Field(ge=1)
+    maxRenewCount: int = Field(ge=0)
     verificationRequired: bool = True
-    dailyFineRate: float = 10
-    lostBookFee: float = 0
-    damagedBookFee: float = 0
-    renewalDays: int = 7
-    maxFineAmount: float = 0
-    overdueGracePeriod: int = 0
+    dailyFineRate: float = Field(default=10, ge=0)
+    lostBookFee: float = Field(default=0, ge=0)
+    damagedBookFee: float = Field(default=0, ge=0)
+    renewalDays: int = Field(default=7, ge=1)
+    maxFineAmount: float = Field(default=0, ge=0)
+    overdueGracePeriod: int = Field(default=0, ge=0)

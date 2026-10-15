@@ -6,7 +6,6 @@ from fastapi.templating import Jinja2Templates
 
 from app.core.database import get_db
 
-
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=TEMPLATE_DIR)
 router = APIRouter()

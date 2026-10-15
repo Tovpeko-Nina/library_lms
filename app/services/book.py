@@ -5,7 +5,6 @@ from fastapi import HTTPException
 
 from app.core.database import get_db
 
-
 BOOK_FIELDS = (
     "isbn",
     "title",
@@ -66,9 +65,7 @@ def list_books(genre=None, author=None, branch=None, available=None, search=None
 def get_branches():
     """Получить список филиалов, в которых есть экземпляры."""
     with get_db() as db:
-        rows = db.execute(
-            "SELECT DISTINCT branch FROM book_copies ORDER BY branch"
-        ).fetchall()
+        rows = db.execute("SELECT DISTINCT branch FROM book_copies ORDER BY branch").fetchall()
 
     return [row["branch"] for row in rows]
 
@@ -76,8 +73,7 @@ def get_branches():
 def get_genres():
     with get_db() as db:
         rows = db.execute(
-            "SELECT DISTINCT genre FROM books "
-            "WHERE genre IS NOT NULL ORDER BY genre"
+            "SELECT DISTINCT genre FROM books WHERE genre IS NOT NULL ORDER BY genre"
         ).fetchall()
 
     return [row["genre"] for row in rows]
@@ -134,8 +130,8 @@ def create_book(data):
                 """,
                 (book_id, *values),
             )
-    except psycopg.IntegrityError:
-        raise HTTPException(400, "Книга с таким ISBN уже существует")
+    except psycopg.IntegrityError as error:
+        raise HTTPException(400, "Книга с таким ISBN уже существует") from error
 
     return {"book_id": book_id}
 
@@ -163,10 +159,10 @@ def patch_book(book_id, data):
 
     if values:
         fields = ", ".join(f"{key}=?" for key in values)
-        query = (
-            f"UPDATE books SET {fields}, updated_at=CURRENT_TIMESTAMP "
-            "WHERE book_id=?"
-        )
+        # Every field name comes from the fixed BOOK_FIELDS allowlist; user-controlled
+        # values are still passed separately as query parameters. This is the local
+        # justification for suppressing Bandit's low-confidence B608 warning.
+        query = f"UPDATE books SET {fields}, updated_at=CURRENT_TIMESTAMP WHERE book_id=?"  # nosec B608
 
         with get_db() as db:
             db.execute(query, (*values.values(), book_id))

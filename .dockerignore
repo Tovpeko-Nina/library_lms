@@ -1,4 +1,8 @@
 .venv
+.env
+.env.*
+backups
+reports
 __pycache__
 *.pyc
 *.pyo

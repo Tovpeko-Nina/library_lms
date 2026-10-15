@@ -1,0 +1,13 @@
+-r requirements.txt
+
+# Test runner and coverage reports.
+pytest==8.4.2
+pytest-cov==7.0.0
+
+# Formatting, linting, type checking and SAST.
+ruff==0.13.2
+mypy==1.18.2
+bandit==1.8.6
+
+# Used by FastAPI's test client in later integration tests.
+httpx==0.28.1

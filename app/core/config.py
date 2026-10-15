@@ -11,16 +11,14 @@ def env_flag(name: str, default: bool = False) -> bool:
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY or len(SECRET_KEY) < 32:
-    raise RuntimeError(
-        "SECRET_KEY обязателен и должен содержать не менее 32 символов."
-    )
+    raise RuntimeError("SECRET_KEY обязателен и должен содержать не менее 32 символов.")
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
     raise RuntimeError(
-        "Переменная DATABASE_URL обязательна. "
-        "Пример: postgresql://lms:lms@localhost:5432/lms"
+        "Переменная DATABASE_URL обязательна. Пример: postgresql://lms:lms@localhost:5432/lms"
     )
+DATABASE_URL: str = database_url
 
 SEED_DEMO_DATA = env_flag("SEED_DEMO_DATA", default=True)
 JWT_ISSUER = os.getenv("JWT_ISSUER", "library-lms")

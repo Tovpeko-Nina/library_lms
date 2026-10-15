@@ -4,7 +4,6 @@ from app.api.v1.deps import roles
 from app.schemas.book import CopyStatusUpdate
 from app.services import copy as copy_service
 
-
 router = APIRouter(prefix="/copies", tags=["copies"])
 
 

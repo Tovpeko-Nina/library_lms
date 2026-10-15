@@ -4,7 +4,6 @@ from app.api.v1.deps import current_user, roles
 from app.schemas.user import LibrarianCreate, PasswordChange, ProfileUpdate
 from app.services import user as user_service
 
-
 router = APIRouter(prefix="/users", tags=["users"])
 
 

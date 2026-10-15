@@ -4,7 +4,6 @@ from app.api.v1.deps import roles
 from app.schemas.loan import BorrowRequest, RenewRequest, ReturnRequest
 from app.services import loan as loan_service
 
-
 router = APIRouter(prefix="/loans", tags=["loans"])
 
 

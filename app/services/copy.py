@@ -4,7 +4,6 @@ from fastapi import HTTPException
 
 from app.core.database import get_db
 
-
 ALLOWED_STATUSES = {"AVAILABLE", "ISSUED", "RESERVED", "LOST", "DAMAGED"}
 
 
@@ -63,7 +62,8 @@ def change_status(copy_id, data, librarian_id):
             )
             """,
             (
-                uuid.uuid4(), copy_id,
+                uuid.uuid4(),
+                copy_id,
                 librarian_id,
                 old["status"],
                 data.status,

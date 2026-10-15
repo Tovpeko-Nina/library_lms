@@ -110,8 +110,12 @@ def reserve_book(book_id, user_id, publication_year=None, edition_number=None):
                 ) VALUES (?, ?, ?, ?, 'WAITING', CURRENT_TIMESTAMP, ?, ?)
                 """,
                 (
-                    queue_id, book_id, user_id, position,
-                    publication_year, edition_number,
+                    queue_id,
+                    book_id,
+                    user_id,
+                    position,
+                    publication_year,
+                    edition_number,
                 ),
             )
 
@@ -135,8 +139,12 @@ def reserve_book(book_id, user_id, publication_year=None, edition_number=None):
             ) VALUES (?, ?, ?, CURRENT_DATE, 'ACTIVE', CURRENT_DATE + 3, ?, ?, ?)
             """,
             (
-                reservation_id, copy["copy_id"], user_id,
-                copy["copy_number"] or 0, publication_year, edition_number,
+                reservation_id,
+                copy["copy_id"],
+                user_id,
+                copy["copy_number"] or 0,
+                publication_year,
+                edition_number,
             ),
         )
 

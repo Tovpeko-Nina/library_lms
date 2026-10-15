@@ -5,7 +5,6 @@ from app.services import book as book_service
 
 from .web import templates
 
-
 router = APIRouter()
 
 

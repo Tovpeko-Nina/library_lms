@@ -3,7 +3,6 @@ from fastapi.responses import HTMLResponse
 
 from .web import templates
 
-
 router = APIRouter()
 
 

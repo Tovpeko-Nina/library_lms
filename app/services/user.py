@@ -163,8 +163,7 @@ def change_password(user, data):
 
     with get_db() as db:
         db.execute(
-            "UPDATE users SET password_hash=?, token_version=token_version+1 "
-            "WHERE user_id=?",
+            "UPDATE users SET password_hash=?, token_version=token_version+1 WHERE user_id=?",
             (hash_password(data.new_password), user["user_id"]),
         )
 
@@ -228,9 +227,19 @@ def delete_user_permanently(user_id, current_user_id):
                 AS has_references
             """,
             (
-                user_id, user_id, user_id, user_id, user_id,
-                user_id, user_id, user_id, user_id, user_id,
-                user_id, user_id, user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
+                user_id,
             ),
         ).fetchone()
 

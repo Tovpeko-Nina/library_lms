@@ -18,9 +18,7 @@ def policy_to_dict(policy):
 
 def get_policy():
     with get_db() as db:
-        policy = db.execute(
-            "SELECT * FROM borrowing_policy LIMIT 1"
-        ).fetchone()
+        policy = db.execute("SELECT * FROM borrowing_policy LIMIT 1").fetchone()
 
     return policy_to_dict(policy)
 
