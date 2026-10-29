@@ -21,7 +21,10 @@ cleanup() {
 trap cleanup EXIT
 
 database_command() {
-    "${compose[@]}" exec -T postgres sh -euc "$1"
+    local database_container_id
+    database_container_id="$("${compose[@]}" ps --quiet postgres)"
+    test -n "$database_container_id"
+    timeout 30 "${docker_command[@]}" exec "$database_container_id" sh -euc "$1"
 }
 
 echo "[1/10] Проверка Compose-конфигурации и обязательных политик"
@@ -45,9 +48,10 @@ echo "[3/10] Healthcheck приложения"
 curl --fail --silent --show-error "http://127.0.0.1:${check_port}/health" >/dev/null
 
 echo "[4/10] Непривилегированный пользователь и ограничения ресурсов"
-application_uid="$("${compose[@]}" exec -T library-lms id -u | tr -d '\r')"
-test "$application_uid" != "0"
 application_id="$("${compose[@]}" ps --quiet library-lms)"
+test -n "$application_id"
+application_uid="$(timeout 10 "${docker_command[@]}" exec "$application_id" id -u | tr -d '\r')"
+test "$application_uid" = "10001"
 test "$("${docker_command[@]}" inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$application_id")" = "true"
 test "$("${docker_command[@]}" inspect --format '{{.HostConfig.Memory}}' "$application_id")" = "268435456"
 test "$("${docker_command[@]}" inspect --format '{{.HostConfig.NanoCpus}}' "$application_id")" = "500000000"
@@ -102,7 +106,11 @@ echo "[9/10] Backup и восстановление в новый volume"
 database_command 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > "$backup_file"
 "${compose[@]}" down --volumes
 "${compose[@]}" up --detach --wait postgres
-"${compose[@]}" exec -T postgres sh -euc 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --exit-on-error' < "$backup_file"
+database_id="$("${compose[@]}" ps --quiet postgres)"
+test -n "$database_id"
+timeout 30 "${docker_command[@]}" exec --interactive "$database_id" sh -euc \
+    'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --exit-on-error' \
+    < "$backup_file"
 restored_marker="$(database_command 'psql -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT value FROM container_check_marker WHERE value=\$\$volume-survived\$\$;"')"
 test "$restored_marker" = "volume-survived"
 
