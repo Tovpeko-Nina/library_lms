@@ -27,6 +27,50 @@ database_command() {
     timeout 30 "${docker_command[@]}" exec "$database_container_id" sh -euc "$1"
 }
 
+wait_for_stable_database() {
+    local successful_checks=0
+    local attempt
+
+    for attempt in {1..30}; do
+        if database_command 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+            >/dev/null 2>&1; then
+            successful_checks=$((successful_checks + 1))
+            if ((successful_checks == 3)); then
+                return 0
+            fi
+        else
+            successful_checks=0
+        fi
+        sleep 1
+    done
+
+    echo "Ошибка: PostgreSQL не достигла стабильного состояния за 30 секунд" >&2
+    return 1
+}
+
+restore_database() {
+    local database_container_id="$1"
+    local attempt
+
+    for attempt in {1..5}; do
+        if timeout 60 "${docker_command[@]}" exec --interactive \
+            "$database_container_id" sh -euc \
+            'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --exit-on-error' \
+            < "$backup_file"; then
+            return 0
+        fi
+
+        echo "pg_restore: попытка $attempt из 5 не удалась, ожидаем PostgreSQL..." >&2
+        sleep 2
+        wait_for_stable_database
+        database_container_id="$("${compose[@]}" ps --quiet postgres)"
+        test -n "$database_container_id"
+    done
+
+    echo "Ошибка: восстановление не удалось после 5 попыток" >&2
+    return 1
+}
+
 echo "[1/10] Проверка Compose-конфигурации и обязательных политик"
 "${compose[@]}" config --quiet
 if grep -Eq '^[[:space:]]*FROM[[:space:]]+[^[:space:]]*:latest([[:space:]]|$)' Dockerfile; then
@@ -106,11 +150,10 @@ echo "[9/10] Backup и восстановление в новый volume"
 database_command 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > "$backup_file"
 "${compose[@]}" down --volumes
 "${compose[@]}" up --detach --wait postgres
+wait_for_stable_database
 database_id="$("${compose[@]}" ps --quiet postgres)"
 test -n "$database_id"
-timeout 30 "${docker_command[@]}" exec --interactive "$database_id" sh -euc \
-    'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --exit-on-error' \
-    < "$backup_file"
+restore_database "$database_id"
 restored_marker="$(database_command 'psql -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT value FROM container_check_marker WHERE value=\$\$volume-survived\$\$;"')"
 test "$restored_marker" = "volume-survived"
 
