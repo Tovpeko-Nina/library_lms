@@ -16,22 +16,22 @@ def upgrade() -> None:
     op.execute(
         """
         ALTER TABLE users
-            ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0
+            ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0
             CHECK (token_version >= 0);
         ALTER TABLE book_copies
-            ADD COLUMN publication_year INTEGER
+            ADD COLUMN IF NOT EXISTS publication_year INTEGER
             CHECK (publication_year IS NULL OR publication_year BETWEEN 1000 AND 9999),
-            ADD COLUMN edition_number INTEGER
+            ADD COLUMN IF NOT EXISTS edition_number INTEGER
             CHECK (edition_number IS NULL OR edition_number > 0);
         ALTER TABLE reservations
-            ADD COLUMN preferred_publication_year INTEGER
+            ADD COLUMN IF NOT EXISTS preferred_publication_year INTEGER
             CHECK (preferred_publication_year IS NULL OR preferred_publication_year BETWEEN 1000 AND 9999),
-            ADD COLUMN preferred_edition_number INTEGER
+            ADD COLUMN IF NOT EXISTS preferred_edition_number INTEGER
             CHECK (preferred_edition_number IS NULL OR preferred_edition_number > 0);
         ALTER TABLE book_queue
-            ADD COLUMN preferred_publication_year INTEGER
+            ADD COLUMN IF NOT EXISTS preferred_publication_year INTEGER
             CHECK (preferred_publication_year IS NULL OR preferred_publication_year BETWEEN 1000 AND 9999),
-            ADD COLUMN preferred_edition_number INTEGER
+            ADD COLUMN IF NOT EXISTS preferred_edition_number INTEGER
             CHECK (preferred_edition_number IS NULL OR preferred_edition_number > 0);
         """
     )

@@ -3,6 +3,11 @@
 .env.*
 backups
 reports
+data
+.coverage
+*.dump
+*.swp
+*.swo
 __pycache__
 *.pyc
 *.pyo

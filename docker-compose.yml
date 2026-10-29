@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.6-alpine3.22
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -13,6 +13,17 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    networks:
+      - backend
+    cpus: "1.00"
+    mem_limit: 512m
+    pids_limit: 200
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   library-lms:
     build: .
@@ -21,16 +32,14 @@ services:
       - -c
       - python scripts/migrate.py && exec uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
-      - "8000:8000"
-    env_file:
-      - .env
+      - "${APP_PORT:-8000}:8000"
     environment:
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
+      JWT_ISSUER: ${JWT_ISSUER:-library-lms}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-library-lms-clients}
+      JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-30}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    volumes:
-      # Локальный режим разработки: шаблоны и статика видны без пересборки.
-      # После изменения Python-кода достаточно перезапустить контейнер.
-      - ./app:/app/app:ro
-      - ./static:/app/static:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,6 +50,29 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    networks:
+      - backend
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cpus: "0.50"
+    mem_limit: 256m
+    pids_limit: 100
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
+
+networks:
+  backend:
+    driver: bridge
