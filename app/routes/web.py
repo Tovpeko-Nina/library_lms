@@ -40,6 +40,7 @@ def home(request: Request):
         ).fetchall()
 
     return templates.TemplateResponse(
+        request,
         "home.html",
         {
             "request": request,
@@ -51,29 +52,29 @@ def home(request: Request):
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return templates.TemplateResponse(request, "dashboard.html", {"request": request})
 
 
 @router.get("/profile", response_class=HTMLResponse)
 def profile(request: Request):
-    return templates.TemplateResponse("profile.html", {"request": request})
+    return templates.TemplateResponse(request, "profile.html", {"request": request})
 
 
 @router.get("/notifications", response_class=HTMLResponse)
 def notifications(request: Request):
-    return templates.TemplateResponse("notifications.html", {"request": request})
+    return templates.TemplateResponse(request, "notifications.html", {"request": request})
 
 
 @router.get("/fines", response_class=HTMLResponse)
 def fines(request: Request):
-    return templates.TemplateResponse("fines.html", {"request": request})
+    return templates.TemplateResponse(request, "fines.html", {"request": request})
 
 
 @router.get("/reports", response_class=HTMLResponse)
 def reports(request: Request):
-    return templates.TemplateResponse("reports/index.html", {"request": request})
+    return templates.TemplateResponse(request, "reports/index.html", {"request": request})
 
 
 @router.get("/settings", response_class=HTMLResponse)
 def settings(request: Request):
-    return templates.TemplateResponse("settings.html", {"request": request})
+    return templates.TemplateResponse(request, "settings.html", {"request": request})

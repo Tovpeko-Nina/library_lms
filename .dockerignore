@@ -3,6 +3,7 @@
 .env.*
 backups
 reports
+.ci-cache
 data
 .coverage
 *.dump

@@ -20,6 +20,7 @@ reports/
 .mypy_cache/
 .ruff_cache/
 backups/
+.ci-cache/
 
 # Build artifacts
 build/

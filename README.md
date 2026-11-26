@@ -13,6 +13,8 @@
 Подробные требования находятся в [техническом задании](docs/TZ.md), маршруты — в [описании API](docs/API.md), таблицы и связи — в [схеме данных](docs/ER.md).
 Текущее соответствие требованиям ЛР1 собрано в [контрольном листе](docs/LAB1_CHECKLIST.md).
 Реализация и команды защиты ЛР3 описаны в [отчёте ЛР3](docs/LAB3_REPORT.md).
+Контейнерный контур ЛР4 описан в [отчёте ЛР4](docs/LAB4_REPORT.md), а GitHub
+Actions и защита CI — в [отчёте ЛР5](docs/LAB5_REPORT.md).
 
 ## Технологии
 
@@ -75,12 +77,14 @@ make test-migration    # проверить цепочку миграций Alem
 make test-recovery     # проверить backup, порчу и восстановление тестовой БД
 make test-db-up        # запустить только тестовую PostgreSQL
 make test-db-down      # удалить тестовую PostgreSQL и её данные
+make style             # Ruff, mypy и проверка JavaScript
+make security          # Bandit, pip-audit и Gitleaks
 make quality           # Ruff, mypy, Bandit и проверка JavaScript
 make format            # автоматически отформатировать Python-код
 make migrate           # применить текущую схему PostgreSQL
 make backup            # сохранить БД в backups/
 make restore BACKUP_FILE=... CONFIRM_RESTORE=yes
-make verify            # запустить quality и test
+make verify            # запустить style, test и security
 make up                # запустить Docker Compose
 make down              # остановить Docker Compose, сохранив данные БД
 make container-check   # собрать, запустить и проверить контейнеры
@@ -110,7 +114,7 @@ make verify
 ```
 
 `make test` создаёт JUnit-отчёт, XML-отчёт покрытия и читаемый HTML-отчёт в
-каталоге `reports/`. Набор содержит 115 unit-тестов, 7 API-тестов,
+каталоге `reports/`. Набор содержит 125 unit-тестов, 7 API-тестов,
 6 дополнительных интеграционных случаев и 5 тестов миграций. Обязательный порог
 покрытия установлен на уровне 40%: если покрытие
 станет ниже, `make test` и `make verify` завершатся с ошибкой.

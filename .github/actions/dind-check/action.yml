@@ -1,0 +1,39 @@
+name: Run check in Docker-in-Docker
+description: Starts an isolated DinD daemon and runs a Make command inside it.
+
+inputs:
+  command:
+    description: Shell command executed inside the DinD tools container.
+    required: true
+  artifact-name:
+    description: Name for reports uploaded after the command.
+    required: true
+  compression-level:
+    description: Artifact compression level from 0 to 9.
+    required: false
+    default: "6"
+
+runs:
+  using: composite
+  steps:
+    - name: Restore Python dependency cache
+      uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+      with:
+        path: .ci-cache/pip
+        key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-
+
+    - name: Execute inside Docker-in-Docker
+      shell: bash
+      run: bash scripts/ci/job.sh '${{ inputs.command }}'
+
+    - name: Upload reports
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: reports/
+        if-no-files-found: ignore
+        retention-days: 14
+        compression-level: ${{ inputs.compression-level }}

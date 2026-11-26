@@ -1,0 +1,199 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  style:
+    name: Style
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run style checks in DinD
+        uses: ./.github/actions/dind-check
+        with:
+          command: make setup && make style
+          artifact-name: style-${{ github.sha }}
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run tests in DinD
+        uses: ./.github/actions/dind-check
+        with:
+          command: make setup && make test DOCKER=docker
+          artifact-name: tests-${{ github.sha }}
+
+  migrations:
+    name: Migrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test migrations in DinD
+        uses: ./.github/actions/dind-check
+        with:
+          command: make setup && make test-migration DOCKER=docker
+          artifact-name: migrations-${{ github.sha }}
+
+  backup:
+    name: Backup recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test backup and restore in DinD
+        uses: ./.github/actions/dind-check
+        with:
+          command: make setup && make test-recovery DOCKER=docker
+          artifact-name: backup-${{ github.sha }}
+
+  security:
+    name: Security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run SAST, dependency and secret scans in DinD
+        uses: ./.github/actions/dind-check
+        with:
+          command: make setup && make security DOCKER=docker
+          artifact-name: security-${{ github.sha }}
+
+  container:
+    name: Container check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run container acceptance in DinD
+        uses: ./.github/actions/dind-check
+        with:
+          command: make setup && make container-check DOCKER=docker
+          artifact-name: container-${{ github.sha }}
+
+  build:
+    name: Build image
+    needs: [style, tests, migrations, backup, security, container]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build SHA-tagged image in DinD
+        uses: ./.github/actions/dind-check
+        with:
+          command: make image-build IMAGE=library-lms-ci:${{ github.sha }} DOCKER=docker
+          artifact-name: application-image-${{ github.sha }}
+          compression-level: "0"
+
+  image-scan:
+    name: Image scan
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download built image
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: application-image-${{ github.sha }}
+          path: image-artifact
+      - name: Scan the exact build artifact in DinD
+        uses: ./.github/actions/dind-check
+        with:
+          command: make image-load IMAGE_ARCHIVE=image-artifact/library-lms-image.tar DOCKER=docker && rm image-artifact/library-lms-image.tar && make image-scan IMAGE=library-lms-ci:${{ github.sha }} DOCKER=docker
+          artifact-name: image-scan-${{ github.sha }}
+
+  required:
+    name: Required CI gate
+    if: always()
+    needs: [style, tests, migrations, backup, security, container, build, image-scan]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reject any failed or skipped mandatory job
+        env:
+          STYLE: ${{ needs.style.result }}
+          TESTS: ${{ needs.tests.result }}
+          MIGRATIONS: ${{ needs.migrations.result }}
+          BACKUP: ${{ needs.backup.result }}
+          SECURITY: ${{ needs.security.result }}
+          CONTAINER: ${{ needs.container.result }}
+          BUILD: ${{ needs.build.result }}
+          IMAGE_SCAN: ${{ needs.image-scan.result }}
+        run: |
+          for result in "$STYLE" "$TESTS" "$MIGRATIONS" "$BACKUP" "$SECURITY" "$CONTAINER" "$BUILD" "$IMAGE_SCAN"; do
+            test "$result" = success
+          done
+
+  publish:
+    name: Publish SHA image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [required, build, image-scan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download approved image
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: application-image-${{ github.sha }}
+          path: image-artifact
+      - name: Publish only after all mandatory checks
+        uses: ./.github/actions/dind-check
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        with:
+          command: make image-load IMAGE_ARCHIVE=image-artifact/library-lms-image.tar DOCKER=docker && make image-publish IMAGE=library-lms-ci:${{ github.sha }} DOCKER=docker
+          artifact-name: publish-${{ github.sha }}
