@@ -49,7 +49,7 @@ def borrow_book(data, librarian):
         if reader["role"] not in READER_ROLES:
             raise HTTPException(400, "Выдача доступна только читателям")
 
-        if reader["is_active"] is None:
+        if not reader["is_active"]:
             raise HTTPException(403, "Пользователь неактивен")
 
         if not reader["is_verified"]:
