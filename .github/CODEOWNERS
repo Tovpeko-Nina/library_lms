@@ -3,7 +3,7 @@
 
 # Acceptance tests and their traceability must not be weakened unnoticed.
 /tests/ @Tovpeko-Nina @Alexxxaila
-/TEST_STRATEGY.md @Alexxxaila
+/TEST_STRATEGY.md @Tovpeko-Nina @Alexxxaila
 
 # Local and server-side quality gates must change together.
 /Makefile @Tovpeko-Nina @Alexxxaila
