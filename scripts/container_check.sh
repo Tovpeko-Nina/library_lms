@@ -6,8 +6,8 @@ check_port="${CONTAINER_CHECK_PORT:-18000}"
 temporary_directory="$(mktemp -d "${TMPDIR:-/tmp}/library-lms-container-check.XXXXXX")"
 backup_file="$temporary_directory/backup.dump"
 check_env="$temporary_directory/check.env"
-chmod 600 "$check_env"
 printf 'APP_PORT=%s\n' "$check_port" > "$check_env"
+chmod 600 "$check_env"
 compose=(
     "${docker_command[@]}" compose
     --env-file .env
