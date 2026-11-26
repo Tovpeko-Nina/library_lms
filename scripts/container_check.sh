@@ -3,8 +3,9 @@ set -Eeuo pipefail
 
 read -r -a docker_command <<< "${DOCKER:-docker}"
 check_port="${CONTAINER_CHECK_PORT:-18000}"
-backup_file="$(mktemp --tmpdir library-lms-container-check.XXXXXX.dump)"
-check_env="$(mktemp --tmpdir library-lms-container-check.XXXXXX.env)"
+temporary_directory="$(mktemp -d "${TMPDIR:-/tmp}/library-lms-container-check.XXXXXX")"
+backup_file="$temporary_directory/backup.dump"
+check_env="$temporary_directory/check.env"
 chmod 600 "$check_env"
 printf 'APP_PORT=%s\n' "$check_port" > "$check_env"
 compose=(
@@ -17,6 +18,7 @@ compose=(
 cleanup() {
     "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
     rm -f -- "$backup_file" "$check_env"
+    rmdir -- "$temporary_directory" 2>/dev/null || true
 }
 trap cleanup EXIT
 
