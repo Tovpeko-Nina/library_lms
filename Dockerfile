@@ -7,8 +7,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Install Debian security updates available for the pinned base image, then
+# remove package indexes so they do not remain in the runtime image.
 # Fixed numeric IDs make file ownership predictable on every host.
-RUN groupadd --gid 10001 lms \
+RUN apt-get update \
+    && apt-get upgrade --yes \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 lms \
     && useradd --uid 10001 --gid lms --no-create-home --shell /usr/sbin/nologin lms
 
 # Dependencies are copied first so this expensive layer is reused when only
