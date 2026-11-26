@@ -250,6 +250,7 @@ image-build:
 	$(DOCKER) build --pull --tag "$(IMAGE)" .
 	$(DOCKER) image inspect "$(IMAGE)" > reports/image-inspect.json
 	$(DOCKER) image save --output "$(IMAGE_ARCHIVE)" "$(IMAGE)"
+	chmod 0644 reports/image-inspect.json "$(IMAGE_ARCHIVE)"
 
 image-load:
 	test -f "$(IMAGE_ARCHIVE)" || { echo "Архив образа не найден: $(IMAGE_ARCHIVE)"; exit 2; }
