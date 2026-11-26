@@ -5,7 +5,6 @@ from fastapi import HTTPException
 
 from app.core.database import get_db
 
-
 READER_ROLES = {"STUDENT", "EMPLOYEE"}
 
 
@@ -39,10 +38,9 @@ def borrow_book(data, librarian):
             if not reservation:
                 raise HTTPException(404, "Активная бронь не найдена")
 
-            if (
-                str(reservation["user_id"]) != str(data.user_id)
-                or str(reservation["copy_id"]) != str(data.copy_id)
-            ):
+            if str(reservation["user_id"]) != str(data.user_id) or str(
+                reservation["copy_id"]
+            ) != str(data.copy_id):
                 raise HTTPException(400, "Бронь не соответствует читателю или экземпляру")
 
         if not reader or not copy:
@@ -50,6 +48,9 @@ def borrow_book(data, librarian):
 
         if reader["role"] not in READER_ROLES:
             raise HTTPException(400, "Выдача доступна только читателям")
+
+        if not reader["is_active"]:
+            raise HTTPException(403, "Пользователь неактивен")
 
         if not reader["is_verified"]:
             raise HTTPException(403, "Пользователь не верифицирован")
@@ -71,8 +72,7 @@ def borrow_book(data, librarian):
             raise HTTPException(400, "Экземпляр недоступен")
 
         active_count = db.execute(
-            "SELECT COUNT(*) AS count FROM loans "
-            "WHERE user_id=? AND return_date IS NULL",
+            "SELECT COUNT(*) AS count FROM loans WHERE user_id=? AND return_date IS NULL",
             (data.user_id,),
         ).fetchone()["count"]
 
@@ -206,10 +206,14 @@ def return_book(data):
             """,
             (
                 status,
-                data.damaged, data.damage_note,
-                data.damaged, today,
-                data.lost, today,
-                data.lost, loan["user_id"],
+                data.damaged,
+                data.damage_note,
+                data.damaged,
+                today,
+                data.lost,
+                today,
+                data.lost,
+                loan["user_id"],
                 loan["copy_id"],
             ),
         )

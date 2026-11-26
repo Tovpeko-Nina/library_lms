@@ -4,7 +4,6 @@ from app.api.v1.deps import current_user
 from app.schemas.user import LoginRequest, RegisterRequest
 from app.services import auth as auth_service
 
-
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 

@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 from app.api.v1.deps import roles
 from app.services import reservation as reservation_service
 
-
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
 

@@ -8,8 +8,7 @@ from app.core.database import get_db
 def list_notifications(user_id):
     with get_db() as db:
         rows = db.execute(
-            "SELECT * FROM notifications "
-            "WHERE user_id=? ORDER BY sent_date DESC",
+            "SELECT * FROM notifications WHERE user_id=? ORDER BY sent_date DESC",
             (user_id,),
         ).fetchall()
 
@@ -19,8 +18,7 @@ def list_notifications(user_id):
 def mark_read(notification_id, user_id):
     with get_db() as db:
         notification = db.execute(
-            "SELECT 1 FROM notifications "
-            "WHERE notification_id=? AND user_id=?",
+            "SELECT 1 FROM notifications WHERE notification_id=? AND user_id=?",
             (notification_id, user_id),
         ).fetchone()
 

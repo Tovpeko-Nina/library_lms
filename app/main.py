@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -8,6 +9,7 @@ from app.api.v1 import (
     auth,
     books,
     copies,
+    favorites,
     fines,
     loans,
     notifications,
@@ -16,18 +18,28 @@ from app.api.v1 import (
     settings,
     users,
 )
-from app.core.database import get_db, init_db
-from app.routes import admin, auth as auth_pages, books as book_pages
+from app.core.database import get_db, seed_demo_data
+from app.routes import admin
+from app.routes import auth as auth_pages
+from app.routes import books as book_pages
 from app.routes import loans as loan_pages
 from app.routes.web import router as web_router
 
-
 BASE_DIR = Path(__file__).resolve().parents[1]
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Выполнить безопасную инициализацию вокруг жизненного цикла приложения."""
+    seed_demo_data()
+    yield
+
 
 app = FastAPI(
     title="Library Management System",
     version="2.0.0",
     description="Учебная система управления библиотекой с веб-интерфейсом и REST API",
+    lifespan=lifespan,
 )
 
 app.mount(
@@ -43,6 +55,7 @@ api_routers = (
     users.router,
     books.router,
     copies.router,
+    favorites.router,
     loans.router,
     fines.router,
     settings.router,
@@ -61,12 +74,6 @@ app.include_router(auth_pages.router)
 app.include_router(book_pages.router)
 app.include_router(loan_pages.router)
 app.include_router(admin.router)
-
-
-@app.on_event("startup")
-def startup():
-    """Создать БД и демонстрационные данные при запуске."""
-    init_db()
 
 
 @app.get("/health")

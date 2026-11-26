@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends
 from app.api.v1.deps import roles
 from app.services import report as report_service
 
-
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 

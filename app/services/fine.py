@@ -17,9 +17,7 @@ def list_user_fines(user_id):
 
 def list_fines():
     with get_db() as db:
-        rows = db.execute(
-            "SELECT * FROM fines ORDER BY created_date DESC"
-        ).fetchall()
+        rows = db.execute("SELECT * FROM fines ORDER BY created_date DESC").fetchall()
 
     return [dict(row) for row in rows]
 

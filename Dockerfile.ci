@@ -1,0 +1,15 @@
+FROM docker:27.5.1-cli-alpine3.21
+
+RUN apk add --no-cache \
+    bash \
+    curl \
+    git \
+    make \
+    nodejs \
+    npm \
+    postgresql17-client \
+    py3-pip \
+    py3-virtualenv \
+    python3
+
+WORKDIR /workspace

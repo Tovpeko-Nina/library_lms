@@ -4,7 +4,6 @@ from app.api.v1.deps import roles
 from app.schemas.book import BookCreate, CopyCreate
 from app.services import book as book_service
 
-
 router = APIRouter(prefix="/books", tags=["books"])
 
 
@@ -18,9 +17,7 @@ def books(
     page: int = 1,
     limit: int = 20,
 ):
-    return book_service.list_books(
-        genre, author, branch, available, search, page, limit
-    )
+    return book_service.list_books(genre, author, branch, available, search, page, limit)
 
 
 @router.get("/genres")

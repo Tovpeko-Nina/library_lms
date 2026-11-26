@@ -11,7 +11,6 @@ from app.core.security import (
 )
 from app.services.user import revoke_tokens
 
-
 ALLOWED_READER_ROLES = {"STUDENT", "EMPLOYEE"}
 DUMMY_PASSWORD_HASH = hash_password("dummy-password-that-is-never-used")
 

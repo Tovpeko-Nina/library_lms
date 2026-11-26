@@ -1,4 +1,14 @@
 .venv
+.env
+.env.*
+backups
+reports
+.ci-cache
+data
+.coverage
+*.dump
+*.swp
+*.swo
 __pycache__
 *.pyc
 *.pyo

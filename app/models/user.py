@@ -15,7 +15,6 @@ class User:
     is_active: bool
 
 
-
 def user_from_row(row):
     """Преобразовать строку результата БД в объект User."""
     return User(

@@ -5,7 +5,6 @@ from app.services import book as book_service
 
 from .web import templates
 
-
 router = APIRouter()
 
 
@@ -25,6 +24,7 @@ def book_list(
     )
 
     return templates.TemplateResponse(
+        request,
         "books/list.html",
         {
             "request": request,
@@ -51,6 +51,7 @@ def book_detail(request: Request, book_id: str):
         copies = book_service.list_copies(book_id)
 
     return templates.TemplateResponse(
+        request,
         "books/detail.html",
         {
             "request": request,

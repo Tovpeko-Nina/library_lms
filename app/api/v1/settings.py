@@ -4,7 +4,6 @@ from app.api.v1.deps import roles
 from app.schemas.settings import BorrowingPolicyUpdate
 from app.services import settings as settings_service
 
-
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
