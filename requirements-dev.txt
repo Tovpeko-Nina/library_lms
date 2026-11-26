@@ -5,7 +5,7 @@ pytest==8.4.2
 pytest-cov==7.0.0
 
 # Formatting, linting, type checking and SAST.
-ruff==0.13.2
+ruff==0.17.6
 mypy==1.18.2
 bandit==1.8.6
 pip-audit==2.10.1
